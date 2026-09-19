@@ -266,5 +266,149 @@ object CalculatorEngine {
             }
         }
     }
+
+    /**
+     * Appends a digit to an expression, preserving weight suffixes (e.g. 'g' or 'kg').
+     * If the expression ends with "50g" and '5' is pressed, it becomes "505g".
+     */
+    fun appendDigit(expression: String, digit: String): String {
+        val trimmed = expression.trimEnd()
+        return when {
+            trimmed.endsWith("kg", ignoreCase = true) -> {
+                val prefix = trimmed.dropLast(2)
+                "$prefix$digit" + "kg"
+            }
+            trimmed.endsWith("g", ignoreCase = true) -> {
+                val prefix = trimmed.dropLast(1)
+                "$prefix$digit" + "g"
+            }
+            else -> {
+                var expr = expression + digit
+                if (digit == "0") {
+                    val lastSignificant = trimmed.lastOrNull()
+                    if (lastSignificant == '×' || lastSignificant == '*' ||
+                        lastSignificant == '÷' || lastSignificant == '/') {
+                        expr += "."
+                    }
+                }
+                expr
+            }
+        }
+    }
+
+    /**
+     * Appends a decimal point to an expression, respecting weight suffixes.
+     */
+    fun appendDecimal(expression: String): String {
+        val trimmed = expression.trimEnd()
+        return when {
+            trimmed.endsWith("kg", ignoreCase = true) -> {
+                val prefix = trimmed.dropLast(2)
+                val lastToken = prefix.split(' ', '+', '\u2212', '-', '\u00D7', '*', '\u00F7', '/').lastOrNull() ?: ""
+                if (!lastToken.contains('.')) {
+                    val toAdd = if (lastToken.isEmpty()) "0." else "."
+                    "$prefix$toAdd" + "kg"
+                } else expression
+            }
+            trimmed.endsWith("g", ignoreCase = true) -> {
+                val prefix = trimmed.dropLast(1)
+                val lastToken = prefix.split(' ', '+', '\u2212', '-', '\u00D7', '*', '\u00F7', '/').lastOrNull() ?: ""
+                if (!lastToken.contains('.')) {
+                    val toAdd = if (lastToken.isEmpty()) "0." else "."
+                    "$prefix$toAdd" + "g"
+                } else expression
+            }
+            else -> {
+                val lastToken = expression.split(' ', '+', '\u2212', '-', '\u00D7', '*', '\u00F7', '/').lastOrNull() ?: ""
+                if (!lastToken.contains('.')) {
+                    val toAppend = if (lastToken.isEmpty()) "0." else "."
+                    expression + toAppend
+                } else expression
+            }
+        }
+    }
+
+    /**
+     * Erases the last character from an expression.
+     * When ending with 'g' or 'kg', erases the digits before the unit instead of deleting the unit itself!
+     * e.g. "200 × 500g" -> "200 × 50g" -> "200 × 5g" -> "200 × "
+     */
+    fun applyBackspace(expression: String): String {
+        if (expression.isEmpty()) return ""
+        val trimmed = expression.trimEnd()
+        return when {
+            // Case 1: Ends with "kg" -> erase digit before "kg" without deleting unit
+            trimmed.endsWith("kg", ignoreCase = true) -> {
+                val prefix = trimmed.dropLast(2)
+                val match = Regex("""(\d+\.?\d*)$""").find(prefix)
+                if (match != null) {
+                    val numStr = match.value
+                    val beforeNum = prefix.substring(0, match.range.first)
+                    if (numStr.length > 1) {
+                        val updatedNum = numStr.dropLast(1).trimEnd('.')
+                        "$beforeNum${updatedNum}kg"
+                    } else {
+                        // Only 1 digit left (e.g. "1kg"), removing it removes the whole token
+                        beforeNum.trimEnd()
+                    }
+                } else {
+                    trimmed.dropLast(2).trimEnd()
+                }
+            }
+            // Case 2: Ends with "g" -> erase digit before "g" without deleting unit
+            trimmed.endsWith("g", ignoreCase = true) -> {
+                val prefix = trimmed.dropLast(1)
+                val match = Regex("""(\d+\.?\d*)$""").find(prefix)
+                if (match != null) {
+                    val numStr = match.value
+                    val beforeNum = prefix.substring(0, match.range.first)
+                    if (numStr.length > 1) {
+                        val updatedNum = numStr.dropLast(1).trimEnd('.')
+                        "$beforeNum${updatedNum}g"
+                    } else {
+                        // Only 1 digit left (e.g. "5g"), removing it removes the whole token
+                        beforeNum.trimEnd()
+                    }
+                } else {
+                    trimmed.dropLast(1).trimEnd()
+                }
+            }
+            // Case 3: Standard backspace
+            trimmed.length > 1 && trimmed.endsWith(" ") -> trimmed.dropLast(1).trimEnd()
+            else -> trimmed.dropLast(1)
+        }
+    }
+
+    /**
+     * Applies a weight shortcut (e.g. "500g", "1kg", "250g") to the expression.
+     * If the expression already ends with a weight shortcut, it replaces it instead of appending.
+     */
+    fun applyShortcut(expression: String, shortcut: String, taggedProductPriceStr: String? = null): String {
+        val current = expression.trim()
+        return when {
+            current.isEmpty() -> {
+                if (taggedProductPriceStr != null) {
+                    "$taggedProductPriceStr × $shortcut"
+                } else {
+                    shortcut
+                }
+            }
+            // If current expression already ends with a weight shortcut (e.g. 500g, 1.5kg), replace it
+            Regex("""[×*]\s*\d+\.?\d*(?:g|kg)$""", RegexOption.IGNORE_CASE).containsMatchIn(current) -> {
+                val base = current.replace(Regex("""[×*]\s*\d+\.?\d*(?:g|kg)$""", RegexOption.IGNORE_CASE), "").trimEnd()
+                "$base × $shortcut"
+            }
+            current.endsWith("×") || current.endsWith("*") -> {
+                "$current $shortcut"
+            }
+            current.last() in listOf('+', '\u2212', '-', '\u00D7', '\u00F7', '/') -> {
+                "$current $shortcut"
+            }
+            else -> {
+                // If it's just a number (e.g. "200"), multiply by shortcut
+                "$current × $shortcut"
+            }
+        }
+    }
 }
 

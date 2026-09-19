@@ -77,4 +77,63 @@ class CalculatorEngineTest {
         val incomplete = CalculatorEngine.evaluate("300 ×")
         assertTrue(incomplete.isFailure)
     }
+
+    @Test
+    fun testEvaluate550gExpression() {
+        // 200/kg × 550g = 110.00
+        val result = CalculatorEngine.evaluate("200 × 550g")
+        assertTrue(result.isSuccess)
+        assertEquals(BigDecimal("110.00"), result.getOrNull())
+    }
+
+    @Test
+    fun testUnitPreservingBackspace() {
+        // Erasing digits from "200 × 500g" should preserve 'g' suffix
+        val step1 = CalculatorEngine.applyBackspace("200 × 500g")
+        assertEquals("200 × 50g", step1)
+
+        val step2 = CalculatorEngine.applyBackspace(step1)
+        assertEquals("200 × 5g", step2)
+
+        // Erasing the last digit removes the weight token cleanly
+        val step3 = CalculatorEngine.applyBackspace(step2)
+        assertEquals("200 ×", step3)
+
+        // Kg unit preservation
+        val kgStep1 = CalculatorEngine.applyBackspace("150 × 1.5kg")
+        assertEquals("150 × 1kg", kgStep1)
+
+        val kgStep2 = CalculatorEngine.applyBackspace(kgStep1)
+        assertEquals("150 ×", kgStep2)
+    }
+
+    @Test
+    fun testDigitInsertionWithUnitSuffix() {
+        // Cashier has "200 × 5g", types 5 and then 0 to make 550g
+        val step1 = CalculatorEngine.appendDigit("200 × 5g", "5")
+        assertEquals("200 × 55g", step1)
+
+        val step2 = CalculatorEngine.appendDigit(step1, "0")
+        assertEquals("200 × 550g", step2)
+
+        // Evaluation of resulting expression
+        val result = CalculatorEngine.evaluate(step2)
+        assertTrue(result.isSuccess)
+        assertEquals(BigDecimal("110.00"), result.getOrNull())
+    }
+
+    @Test
+    fun testShortcutReplacement() {
+        // Cashier selected 500g, then changes mind to 750g -> should replace, not append
+        val replaced = CalculatorEngine.applyShortcut("200 × 500g", "750g")
+        assertEquals("200 × 750g", replaced)
+
+        // Shortcut from bare rate
+        val fromRate = CalculatorEngine.applyShortcut("200", "500g")
+        assertEquals("200 × 500g", fromRate)
+
+        // Shortcut with tagged product price
+        val tagged = CalculatorEngine.applyShortcut("", "500g", "120")
+        assertEquals("120 × 500g", tagged)
+    }
 }

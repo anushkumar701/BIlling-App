@@ -79,9 +79,11 @@ fun MenuScreen(
     val signInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val userResult = GoogleAuthManager.handleSignInResult(result.data)
+        val userResult = GoogleAuthManager.handleSignInResult(context, result.data)
         userResult.onSuccess { user ->
             viewModel.onGoogleSignInSuccess(user)
+        }.onFailure { error ->
+            viewModel.onGoogleSignInFailure(error)
         }
     }
 

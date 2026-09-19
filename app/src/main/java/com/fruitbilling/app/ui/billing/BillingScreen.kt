@@ -146,7 +146,7 @@ fun BillingScreen(
             CalcSaveStrip(
                 isSaving = uiState.isSaving,
                 totalAmount = uiState.currentBill?.bill?.calculatedTotal,
-                onSaveClicked = viewModel::onSaveBill
+                onSaveClicked = viewModel::onPromptSaveBill
             )
         }
 
@@ -193,6 +193,18 @@ fun BillingScreen(
                 item = item,
                 onConfirmDelete = viewModel::onConfirmDeleteItem,
                 onDismiss = viewModel::onCancelDeleteItem
+            )
+        }
+
+        // Dialog: Save Bill Review Prompt
+        if (uiState.isSaveBillPromptOpen && uiState.currentBill != null) {
+            SaveBillDialog(
+                billWithItems = uiState.currentBill!!,
+                initialFinalPrice = uiState.finalPriceInput,
+                initialPaymentMethod = uiState.selectedPaymentMethod,
+                isSaving = uiState.isSaving,
+                onConfirmSave = viewModel::onConfirmSaveBill,
+                onDismiss = viewModel::onDismissSaveBillPrompt
             )
         }
     }

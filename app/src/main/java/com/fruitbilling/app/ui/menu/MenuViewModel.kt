@@ -68,7 +68,13 @@ class MenuViewModel(
     fun onGoogleSignInSuccess(user: GoogleUserData) {
         _uiState.value = _uiState.value.copy(googleUser = user)
         viewModelScope.launch {
-            _snackbarMessages.emit("Signed in as ${user.displayName ?: user.email}")
+            _snackbarMessages.emit("Connected: ${user.email}")
+        }
+    }
+
+    fun onGoogleSignInFailure(error: Throwable) {
+        viewModelScope.launch {
+            _snackbarMessages.emit("Sign in cancelled or failed: ${error.message ?: "Could not select account"}")
         }
     }
 

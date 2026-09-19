@@ -51,7 +51,8 @@ data class BillingUiState(
     val lastDeletedItem: BillItem? = null,    // kept for 1-tap Undo in snackbar
     val finalPriceInput: String = "",
     val selectedPaymentMethod: PaymentMethod? = null,
-    val isSaving: Boolean = false
+    val isSaving: Boolean = false,
+    val isSaveBillPromptOpen: Boolean = false
 )
 
 class BillingViewModel(
@@ -132,19 +133,7 @@ class BillingViewModel(
 
     fun onDigit(digit: String) {
         val current = _uiState.value.pendingExpression
-        var newExpr = current + digit
-
-        // Auto-dot: if the user types 0 after a multiply operator,
-        // automatically add a decimal point (e.g. 200 × 0 -> 200 × 0.).
-        if (digit == "0") {
-            val trimmedPrev = current.trimEnd()
-            val lastSignificant = trimmedPrev.lastOrNull()
-            if (lastSignificant == '×' || lastSignificant == '*' ||
-                lastSignificant == '÷' || lastSignificant == '/') {
-                newExpr += "."
-            }
-        }
-
+        val newExpr = CalculatorEngine.appendDigit(current, digit)
         _uiState.value = _uiState.value.copy(pendingExpression = newExpr)
         updateLivePreview(newExpr)
     }
@@ -166,11 +155,8 @@ class BillingViewModel(
 
     fun onDecimal() {
         val current = _uiState.value.pendingExpression
-        // Find current token (after last space or operator)
-        val lastToken = current.split(' ', '+', '\u2212', '-', '\u00D7', '*', '\u00F7', '/').lastOrNull() ?: ""
-        if (!lastToken.contains('.')) {
-            val toAppend = if (lastToken.isEmpty()) "0." else "."
-            val newExpr = current + toAppend
+        val newExpr = CalculatorEngine.appendDecimal(current)
+        if (newExpr != current) {
             _uiState.value = _uiState.value.copy(pendingExpression = newExpr)
             updateLivePreview(newExpr)
         }
@@ -178,16 +164,10 @@ class BillingViewModel(
 
     fun onBackspace() {
         val current = _uiState.value.pendingExpression
-        if (current.isNotEmpty()) {
-            val trimmed = current.trimEnd()
-            val newExpr = if (trimmed.length > 1 && trimmed.endsWith(" ")) {
-                trimmed.dropLast(1).trimEnd()
-            } else {
-                trimmed.dropLast(1)
-            }
-            _uiState.value = _uiState.value.copy(pendingExpression = newExpr)
-            updateLivePreview(newExpr)
-        }
+        if (current.isEmpty()) return
+        val newExpr = CalculatorEngine.applyBackspace(current)
+        _uiState.value = _uiState.value.copy(pendingExpression = newExpr)
+        updateLivePreview(newExpr)
     }
 
     fun onClearExpression() {
@@ -222,28 +202,9 @@ class BillingViewModel(
     }
 
     fun onShortcut(shortcut: String) {
-        val current = _uiState.value.pendingExpression.trim()
-        val toAppend = when {
-            current.isEmpty() -> {
-                val tagged = _uiState.value.taggedProduct
-                if (tagged != null) {
-                    val priceStr = tagged.price.stripTrailingZeros().toPlainString()
-                    "$priceStr × $shortcut"
-                } else {
-                    shortcut
-                }
-            }
-            current.endsWith('×') || current.endsWith('*') -> {
-                "$current $shortcut"
-            }
-            current.last().isDigit() || current.endsWith('.') -> {
-                // e.g. "300" + shortcut "250g" -> "300 × 250g"
-                "$current × $shortcut"
-            }
-            else -> {
-                "$current $shortcut"
-            }
-        }
+        val current = _uiState.value.pendingExpression
+        val priceStr = _uiState.value.taggedProduct?.price?.stripTrailingZeros()?.toPlainString()
+        val toAppend = CalculatorEngine.applyShortcut(current, shortcut, priceStr)
         _uiState.value = _uiState.value.copy(pendingExpression = toAppend)
         updateLivePreview(toAppend)
     }
@@ -555,26 +516,32 @@ class BillingViewModel(
         }
     }
 
-    // --- 1-Tap Save Bill (§10) ---
+    // --- Save Bill Workflow (Human Cashier Review Prompt) ---
 
-    fun onSaveBill() {
-        val state = _uiState.value
-        val currentBill = state.currentBill ?: return
-
-        // 1. Double tap guard
-        if (state.isSaving) return
-
-        // 2. Validate non-empty bill
+    fun onPromptSaveBill() {
+        val currentBill = _uiState.value.currentBill ?: return
         if (currentBill.items.isEmpty()) {
             viewModelScope.launch {
-                _snackbarMessages.emit("Bill cannot be empty")
+                _snackbarMessages.emit("Bill cannot be empty. Add calculations or fruits first.")
             }
             return
         }
+        _uiState.value = _uiState.value.copy(isSaveBillPromptOpen = true)
+    }
 
-        // 3. Optional final price
-        val finalAmount = if (state.finalPriceInput.isNotBlank()) {
-            val parsed = state.finalPriceInput.trim().toBigDecimalOrNull()
+    fun onDismissSaveBillPrompt() {
+        _uiState.value = _uiState.value.copy(isSaveBillPromptOpen = false)
+    }
+
+    fun onConfirmSaveBill(finalAmountText: String, paymentMethod: PaymentMethod?) {
+        val state = _uiState.value
+        val currentBill = state.currentBill ?: return
+
+        if (state.isSaving) return
+        if (currentBill.items.isEmpty()) return
+
+        val finalAmount = if (finalAmountText.isNotBlank()) {
+            val parsed = finalAmountText.trim().toBigDecimalOrNull()
             if (parsed == null || parsed < BigDecimal.ZERO) {
                 viewModelScope.launch { _snackbarMessages.emit("Invalid final price") }
                 return
@@ -582,19 +549,20 @@ class BillingViewModel(
             parsed
         } else null
 
-        // 4. Save immediately on 1st tap (no popup blocking cashier!)
-        _uiState.value = _uiState.value.copy(isSaving = true)
+        _uiState.value = _uiState.value.copy(isSaving = true, isSaveBillPromptOpen = false)
 
         viewModelScope.launch {
+            val chosenMethod = paymentMethod ?: state.selectedPaymentMethod
             val result = billRepository.completeBill(
                 billId = currentBill.bill.id,
                 finalAmount = finalAmount,
-                paymentMethod = state.selectedPaymentMethod
+                paymentMethod = chosenMethod
             )
 
             result.onSuccess { completedBill ->
                 _uiState.value = _uiState.value.copy(isSaving = false)
-                _snackbarMessages.emit("Bill ${completedBill.formattedBillNumber} saved")
+                val payLabel = chosenMethod?.label ?: "Saved"
+                _snackbarMessages.emit("Bill ${completedBill.formattedBillNumber} saved ($payLabel)")
 
                 // Open clean next bill automatically (§10 & §12)
                 val nextBill = billRepository.getOrCreateActiveBill()
@@ -605,6 +573,10 @@ class BillingViewModel(
                 _snackbarMessages.emit("Save failed: ${error.message}. Bill is safe.")
             }
         }
+    }
+
+    fun onSaveBill() {
+        onPromptSaveBill()
     }
 }
 
