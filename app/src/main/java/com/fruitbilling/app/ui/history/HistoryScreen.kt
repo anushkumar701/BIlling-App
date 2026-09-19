@@ -144,8 +144,8 @@ fun HistoryScreen(
             HistoryTab.SUMMARY -> {
                 BusinessSummaryContent(
                     summary = uiState.businessSummary,
-                    completedBills = uiState.completedBills,
-                    modifier = Modifier.padding(innerPadding)
+                    modifier = Modifier.padding(innerPadding),
+                    completedBills = uiState.completedBills
                 )
             }
         }
@@ -549,8 +549,8 @@ fun HistoryBillRow(
 @Composable
 private fun BusinessSummaryContent(
     summary: MonthSalesSummary,
-    completedBills: List<BillWithItems> = emptyList(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    completedBills: List<BillWithItems> = emptyList()
 ) {
     val context = LocalContext.current
 

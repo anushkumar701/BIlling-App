@@ -58,7 +58,13 @@ fun CalculatorKeypad(
 ) {
     val view = LocalView.current
     fun haptic() = view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-    fun hapticConfirm() = view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+    fun hapticConfirm() = view.performHapticFeedback(
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            HapticFeedbackConstants.CONFIRM
+        } else {
+            HapticFeedbackConstants.KEYBOARD_TAP
+        }
+    )
 
     Column(
         modifier = modifier

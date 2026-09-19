@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.fruitbilling.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
@@ -111,9 +112,10 @@ object OtaUpdateManager {
      * Downloads the APK file using Android's DownloadManager and prompts for installation.
      */
     fun startDownloadAndInstall(context: Context, downloadUrl: String, versionTag: String) {
+        val appContext = context.applicationContext
         val fileName = "FruitBilling_${versionTag.replace(".", "_")}.apk"
         val destinationFile = File(
-            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+            appContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
             fileName
         )
         if (destinationFile.exists()) destinationFile.delete()
@@ -125,27 +127,28 @@ object OtaUpdateManager {
             setDestinationUri(Uri.fromFile(destinationFile))
         }
 
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val downloadManager = appContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val downloadId = downloadManager.enqueue(request)
 
         val onCompleteReceiver = object : BroadcastReceiver() {
             override fun onReceive(ctxt: Context?, intent: Intent?) {
                 val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
                 if (id == downloadId && destinationFile.exists()) {
-                    installApk(context, destinationFile)
+                    installApk(appContext, destinationFile)
                     try {
-                        context.unregisterReceiver(this)
+                        appContext.unregisterReceiver(this)
                     } catch (_: Exception) {}
                 }
             }
         }
 
         val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(onCompleteReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(onCompleteReceiver, filter)
-        }
+        ContextCompat.registerReceiver(
+            appContext,
+            onCompleteReceiver,
+            filter,
+            ContextCompat.RECEIVER_EXPORTED
+        )
     }
 
     private fun installApk(context: Context, apkFile: File) {

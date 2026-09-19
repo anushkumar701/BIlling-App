@@ -27,7 +27,7 @@ data class Bill(
     val completedAt: Long? = null
 ) {
     val formattedBillNumber: String
-        get() = String.format("#%03d", billNumber)
+        get() = String.format(java.util.Locale.US, "#%03d", billNumber)
 
     val effectiveChargedAmount: BigDecimal
         get() = finalAmount ?: calculatedTotal

@@ -160,8 +160,8 @@ fun BillingHeader(
                         val salesStr = run {
                             val v = todayStats.todaySales
                             when {
-                                v >= java.math.BigDecimal(1_00_000) -> "₹${(v.toDouble() / 1_00_000).let { if (it >= 10) it.toInt().toString() else String.format("%.1f", it) }}L"
-                                v >= java.math.BigDecimal(1_000) -> "₹${(v.toDouble() / 1_000).let { if (it >= 10) it.toInt().toString() else String.format("%.1f", it) }}K"
+                                v >= java.math.BigDecimal(1_00_000) -> "₹${(v.toDouble() / 1_00_000).let { if (it >= 10) it.toInt().toString() else String.format(java.util.Locale.US, "%.1f", it) }}L"
+                                v >= java.math.BigDecimal(1_000) -> "₹${(v.toDouble() / 1_000).let { if (it >= 10) it.toInt().toString() else String.format(java.util.Locale.US, "%.1f", it) }}K"
                                 else -> "₹${v.setScale(0, java.math.RoundingMode.HALF_UP)}"
                             }
                         }

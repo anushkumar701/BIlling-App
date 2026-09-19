@@ -6,9 +6,9 @@ import java.util.Date
 import java.util.Locale
 
 object DateUtils {
-    private val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-    private val fullDateTimeFormat = SimpleDateFormat("dd MMM, h:mm a", Locale.getDefault())
-    private val fullDateFormat = SimpleDateFormat("dd MMMM yyyy, h:mm a", Locale.getDefault())
+    private fun getTimeFormat() = SimpleDateFormat("h:mm a", Locale.getDefault())
+    private fun getFullDateTimeFormat() = SimpleDateFormat("dd MMM, h:mm a", Locale.getDefault())
+    private fun getFullDateFormat() = SimpleDateFormat("dd MMMM yyyy, h:mm a", Locale.getDefault())
 
     fun getTodayStartAndEndMillis(): Pair<Long, Long> {
         val calendar = Calendar.getInstance()
@@ -31,13 +31,13 @@ object DateUtils {
         val (startOfDay, endOfDay) = getTodayStartAndEndMillis()
         val date = Date(timestamp)
         return if (timestamp in startOfDay..endOfDay) {
-            "Today ${timeFormat.format(date)}"
+            "Today ${getTimeFormat().format(date)}"
         } else {
-            fullDateTimeFormat.format(date)
+            getFullDateTimeFormat().format(date)
         }
     }
 
     fun formatDetailedTimestamp(timestamp: Long): String {
-        return fullDateFormat.format(Date(timestamp))
+        return getFullDateFormat().format(Date(timestamp))
     }
 }
