@@ -26,6 +26,11 @@ import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.math.RoundingMode
 
+private val DEFAULT_WEIGHT_SHORTCUTS = listOf(
+    "100g", "200g", "250g", "300g", "400g", "500g",
+    "600g", "700g", "750g", "800g", "900g", "1kg"
+)
+
 data class BillingUiState(
     val currentBill: BillWithItems? = null,
     val activeAndHeldBills: List<BillWithItems> = emptyList(),
@@ -34,7 +39,7 @@ data class BillingUiState(
     val pendingExpression: String = "",
     val livePreview: String = "",        // live partial result shown in expression bar while typing
     val taggedProduct: Product? = null,
-    val quickShortcuts: List<String> = listOf("100g", "250g", "500g", "750g"),
+    val quickShortcuts: List<String> = DEFAULT_WEIGHT_SHORTCUTS,
     val searchQuery: String = "",
     val matchingProducts: List<Product> = emptyList(),
     val editingItem: BillItem? = null,
@@ -129,16 +134,13 @@ class BillingViewModel(
         val current = _uiState.value.pendingExpression
         var newExpr = current + digit
 
-        // Auto-dot: if the user types 0 or 1 after a multiply/divide operator,
-        // automatically add a decimal point. This matches the fruit-shop workflow
-        // where weight is almost always a decimal fraction (e.g. 200×0.4, 300×0.75).
-        // Triggers only when the previous token was an operator and the new digit is 0 or 1.
-        if (digit == "0" || digit == "1") {
+        // Auto-dot: if the user types 0 after a multiply operator,
+        // automatically add a decimal point (e.g. 200 × 0 -> 200 × 0.).
+        if (digit == "0") {
             val trimmedPrev = current.trimEnd()
             val lastSignificant = trimmedPrev.lastOrNull()
             if (lastSignificant == '×' || lastSignificant == '*' ||
                 lastSignificant == '÷' || lastSignificant == '/') {
-                // auto-append decimal so cashier goes straight to typing 0.4 not 04
                 newExpr += "."
             }
         }
@@ -193,7 +195,7 @@ class BillingViewModel(
             pendingExpression = "",
             livePreview = "",
             taggedProduct = null,
-            quickShortcuts = listOf("100g", "250g", "500g", "750g")
+            quickShortcuts = DEFAULT_WEIGHT_SHORTCUTS
         )
     }
 
@@ -243,6 +245,7 @@ class BillingViewModel(
             }
         }
         _uiState.value = _uiState.value.copy(pendingExpression = toAppend)
+        updateLivePreview(toAppend)
     }
 
     fun onEquals() {
@@ -266,8 +269,9 @@ class BillingViewModel(
                 // Clear expression & product ready for next calculation (§7)
                 _uiState.value = _uiState.value.copy(
                     pendingExpression = "",
+                    livePreview = "",
                     taggedProduct = null,
-                    quickShortcuts = listOf("100g", "250g", "500g", "750g")
+                    quickShortcuts = DEFAULT_WEIGHT_SHORTCUTS
                 )
             }
         }.onFailure { error ->
@@ -315,7 +319,11 @@ class BillingViewModel(
 
         val unitPrice = product.price
         val amount = (unitPrice * quantityOrWeight).setScale(2, RoundingMode.HALF_UP)
-        val qtyStr = quantityOrWeight.stripTrailingZeros().toPlainString()
+        val qtyStr = if (product.unit == ProductUnit.KG) {
+            CalculatorEngine.formatWeight(quantityOrWeight)
+        } else {
+            quantityOrWeight.stripTrailingZeros().toPlainString()
+        }
         val priceStr = unitPrice.stripTrailingZeros().toPlainString()
         val expression = "$priceStr × $qtyStr"
 
@@ -377,7 +385,7 @@ class BillingViewModel(
         val shortcuts = if (product.unit == ProductUnit.PIECE) {
             listOf("1", "2", "3", "5", "10")
         } else {
-            listOf("100g", "250g", "500g", "750g")
+            DEFAULT_WEIGHT_SHORTCUTS
         }
 
         _uiState.value = _uiState.value.copy(

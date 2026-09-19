@@ -30,18 +30,19 @@ import androidx.compose.ui.unit.sp
 import com.fruitbilling.app.data.model.ProductUnit
 
 /**
- * Calculator keypad — 5 rows:
+ * Optimized Calculator Keypad for high-speed counter operations:
  *
- *  Row 0 (shortcuts): [100g] [250g] [500g] [750g]  (or equivalent)
- *  Row 1: [7] [8] [9] [÷]
- *  Row 2: [4] [5] [6] [×]
- *  Row 3: [1] [2] [3] [−]
- *  Row 4: [⌫] [0] [.] [=]   ← ⌫ is here, NOT near Save Bill
- *  Row 5: [+] (full-width, taller — easy to hit for addition)
+ *  Shortcuts: 2 compact rows of up to 6 buttons each
+ *    Row A: [100g] [200g] [250g] [300g] [400g] [500g]
+ *    Row B: [600g] [700g] [750g] [800g] [900g] [1kg]
  *
- * The [+] is placed last and full-width so it is impossible to confuse
- * with the Save Bill button which lives in its own strip BELOW the keypad
- * with a gap between them.
+ *  4-Row Keypad:
+ *    Row 1: [7] [8] [9] [⌫]
+ *    Row 2: [4] [5] [6] [×]
+ *    Row 3: [1] [2] [3] [−]
+ *    Row 4: [0] [.] [+] [=]
+ *
+ *  (Divide '÷' and redundant 5th full-width '+' row removed to maximize receipt list vertical height)
  */
 @Composable
 fun CalculatorKeypad(
@@ -62,99 +63,91 @@ fun CalculatorKeypad(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // ── Quick shortcuts row ──────────────────────────────────────────────
+        // ── Quick weight / piece shortcuts ──────────────────────────────────
+        if (quickShortcuts.size <= 6) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                quickShortcuts.forEach { shortcut ->
+                    QuickShortcutButton(
+                        text = shortcut,
+                        onClick = { haptic(); onShortcutClicked(shortcut) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        } else {
+            val row1 = quickShortcuts.take(6)
+            val row2 = quickShortcuts.drop(6)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                row1.forEach { shortcut ->
+                    QuickShortcutButton(
+                        text = shortcut,
+                        onClick = { haptic(); onShortcutClicked(shortcut) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                row2.forEach { shortcut ->
+                    QuickShortcutButton(
+                        text = shortcut,
+                        onClick = { haptic(); onShortcutClicked(shortcut) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        // ── Row 1: 7 8 9 ⌫ ──────────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            quickShortcuts.forEach { shortcut ->
-                QuickShortcutButton(
-                    text = shortcut,
-                    onClick = { haptic(); onShortcutClicked(shortcut) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            KeypadButton(item = KeyItem("7", KeyType.DIGIT) { onDigitClicked("7") }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem("8", KeyType.DIGIT) { onDigitClicked("8") }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem("9", KeyType.DIGIT) { onDigitClicked("9") }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            BackspaceKey(onClick = { haptic(); onBackspace() }, modifier = Modifier.weight(1f))
         }
-
-        // ── Row 1: 7 8 9 ÷ ──────────────────────────────────────────────────
-        KeypadRow(
-            col1 = KeyItem("7",  KeyType.DIGIT)    { onDigitClicked("7") },
-            col2 = KeyItem("8",  KeyType.DIGIT)    { onDigitClicked("8") },
-            col3 = KeyItem("9",  KeyType.DIGIT)    { onDigitClicked("9") },
-            col4 = KeyItem("÷",  KeyType.OPERATOR) { onOperatorClicked("÷") },
-            onHaptic = ::haptic
-        )
 
         // ── Row 2: 4 5 6 × ──────────────────────────────────────────────────
         KeypadRow(
-            col1 = KeyItem("4",  KeyType.DIGIT)    { onDigitClicked("4") },
-            col2 = KeyItem("5",  KeyType.DIGIT)    { onDigitClicked("5") },
-            col3 = KeyItem("6",  KeyType.DIGIT)    { onDigitClicked("6") },
-            col4 = KeyItem("×",  KeyType.OPERATOR) { onOperatorClicked("×") },
+            col1 = KeyItem("4", KeyType.DIGIT) { onDigitClicked("4") },
+            col2 = KeyItem("5", KeyType.DIGIT) { onDigitClicked("5") },
+            col3 = KeyItem("6", KeyType.DIGIT) { onDigitClicked("6") },
+            col4 = KeyItem("×", KeyType.OPERATOR) { onOperatorClicked("×") },
             onHaptic = ::haptic
         )
 
         // ── Row 3: 1 2 3 − ──────────────────────────────────────────────────
         KeypadRow(
-            col1 = KeyItem("1",  KeyType.DIGIT)    { onDigitClicked("1") },
-            col2 = KeyItem("2",  KeyType.DIGIT)    { onDigitClicked("2") },
-            col3 = KeyItem("3",  KeyType.DIGIT)    { onDigitClicked("3") },
-            col4 = KeyItem("−",  KeyType.OPERATOR) { onOperatorClicked("−") },
+            col1 = KeyItem("1", KeyType.DIGIT) { onDigitClicked("1") },
+            col2 = KeyItem("2", KeyType.DIGIT) { onDigitClicked("2") },
+            col3 = KeyItem("3", KeyType.DIGIT) { onDigitClicked("3") },
+            col4 = KeyItem("−", KeyType.OPERATOR) { onOperatorClicked("−") },
             onHaptic = ::haptic
         )
 
-        // ── Row 4: ⌫  0  .  = ───────────────────────────────────────────────
-        // ⌫ is a KEYPAD key — thumb naturally reaches here, NOT the Save button
-        // = is in this row, far from Save Bill (which is below the keypad)
+        // ── Row 4: 0 . + = ──────────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // ⌫ backspace key
-            BackspaceKey(
-                onClick = { haptic(); onBackspace() },
-                modifier = Modifier.weight(1f)
-            )
-            KeypadButton(
-                item = KeyItem("0", KeyType.DIGIT) { onDigitClicked("0") },
-                onHaptic = ::haptic,
-                modifier = Modifier.weight(1f)
-            )
-            KeypadButton(
-                item = KeyItem(".", KeyType.DIGIT) { onDecimalClicked() },
-                onHaptic = ::haptic,
-                modifier = Modifier.weight(1f)
-            )
-            KeypadButton(
-                item = KeyItem("=", KeyType.EQUALS) { onEqualsClicked() },
-                onHaptic = ::hapticConfirm,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        // ── Row 5: [+] full-width ────────────────────────────────────────────
-        // Large comfortable target for the most-used operator
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.secondaryContainer)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { haptic(); onOperatorClicked("+") },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "+",
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold
-            )
+            KeypadButton(item = KeyItem("0", KeyType.DIGIT) { onDigitClicked("0") }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem(".", KeyType.DIGIT) { onDecimalClicked() }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem("+", KeyType.OPERATOR) { onOperatorClicked("+") }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem("=", KeyType.EQUALS) { onEqualsClicked() }, onHaptic = ::hapticConfirm, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -207,7 +200,7 @@ private fun KeypadButton(
 
     Box(
         modifier = modifier
-            .height(52.dp)
+            .height(50.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(containerColor)
             .clickable(
@@ -225,12 +218,12 @@ private fun KeypadButton(
     }
 }
 
-/** Dedicated backspace key with the standard ⌫ icon */
+/** Dedicated backspace key with standard ⌫ icon */
 @Composable
 private fun BackspaceKey(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .height(52.dp)
+            .height(50.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f))
             .clickable(
@@ -257,8 +250,8 @@ private fun QuickShortcutButton(
 ) {
     Box(
         modifier = modifier
-            .height(38.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .height(32.dp)
+            .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -269,8 +262,9 @@ private fun QuickShortcutButton(
         Text(
             text = text,
             color = MaterialTheme.colorScheme.onTertiaryContainer,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
         )
     }
 }

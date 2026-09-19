@@ -97,7 +97,23 @@ object CalculatorEngine {
                 val unitInfo = parseUnit(expr, i)
                 i = unitInfo.newIndex
                 val baseVal = BigDecimal(numStr)
-                val finalVal = baseVal.multiply(unitInfo.multiplier)
+
+                // Auto-gram logic (§fruit-shop workflow):
+                // If the number follows '*' (multiply) without an explicit unit (multiplier == 1),
+                // without a decimal point, and is >= 50 (e.g. 200 * 850, 80 * 250),
+                // it is automatically treated as grams (e.g. 850g = 0.850kg).
+                val isAfterMultiply = tokens.lastOrNull() is Token.Operator && (tokens.last() as Token.Operator).op == '*'
+                val isIntegerGramCandidate = !numStr.contains('.') &&
+                        unitInfo.multiplier.compareTo(BigDecimal.ONE) == 0 &&
+                        baseVal >= BigDecimal("50")
+
+                val finalMultiplier = if (isAfterMultiply && isIntegerGramCandidate) {
+                    BigDecimal("0.001")
+                } else {
+                    unitInfo.multiplier
+                }
+
+                val finalVal = baseVal.multiply(finalMultiplier)
                 tokens.add(Token.Number(finalVal))
                 continue
             }
@@ -199,4 +215,56 @@ object CalculatorEngine {
             scaled.stripTrailingZeros().toPlainString()
         }
     }
+
+    /**
+     * Formats weight naturally for local fruit-shop usage:
+     * - Under 1000g: "100g", "250g", "500g", "750g", "850g" (NEVER decimals like 0.75 or 0.5)
+     * - Exactly 1000g or whole kgs: "1kg", "2kg"
+     * - Fractional kgs: "1.5kg", "2.25kg"
+     */
+    fun formatWeight(kgAmount: BigDecimal): String {
+        val grams = kgAmount.multiply(BigDecimal("1000")).setScale(0, RoundingMode.HALF_UP)
+        return if (grams.compareTo(BigDecimal.ZERO) <= 0) {
+            "${kgAmount.stripTrailingZeros().toPlainString()}kg"
+        } else if (grams < BigDecimal("1000")) {
+            "${grams.toPlainString()}g"
+        } else if (grams.remainder(BigDecimal("1000")).compareTo(BigDecimal.ZERO) == 0) {
+            "${grams.divide(BigDecimal("1000"), 0, RoundingMode.HALF_UP).toPlainString()}kg"
+        } else {
+            "${kgAmount.stripTrailingZeros().toPlainString()}kg"
+        }
+    }
+
+    /**
+     * Cleans up an expression for display so weight fractions or auto-grams show with natural units:
+     * e.g. "200 × 0.75" -> "200 × 750g"
+     *      "200 × 0.5"  -> "200 × 500g"
+     *      "200 × 850"  -> "200 × 850g"
+     *      "200 × 1.5"  -> "200 × 1.5kg"
+     */
+    fun prettyExpression(expr: String): String {
+        val trimmed = expr.trim()
+        if (trimmed.isEmpty()) return ""
+
+        val multiplyRegex = Regex("""([×*])\s*(\d*\.?\d+)(?![\w\d])""")
+        return multiplyRegex.replace(trimmed) { match ->
+            val op = match.groupValues[1]
+            val numStr = match.groupValues[2]
+            val num = numStr.toBigDecimalOrNull()
+            if (num != null) {
+                if (numStr.startsWith("0.") || numStr.startsWith(".")) {
+                    "$op ${formatWeight(num)}"
+                } else if (!numStr.contains('.') && num >= BigDecimal("50")) {
+                    "$op ${num.setScale(0, RoundingMode.HALF_UP).toPlainString()}g"
+                } else if (numStr.contains('.') && num >= BigDecimal.ONE) {
+                    "$op ${num.stripTrailingZeros().toPlainString()}kg"
+                } else {
+                    match.value
+                }
+            } else {
+                match.value
+            }
+        }
+    }
 }
+

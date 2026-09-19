@@ -9,6 +9,7 @@ import androidx.room.Transaction
 import androidx.room.Update
 import com.fruitbilling.app.data.model.Bill
 import com.fruitbilling.app.data.model.BillWithItems
+import com.fruitbilling.app.data.model.PaymentMethod
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -91,4 +92,8 @@ interface BillDao {
     /** Bounded month query: only loads bills in the given time range to avoid unbounded memory usage */
     @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND completedAt BETWEEN :startMs AND :endMs ORDER BY completedAt DESC")
     fun getCompletedBillsInRange(startMs: Long, endMs: Long): Flow<List<Bill>>
+
+    @Query("UPDATE bills SET paymentMethod = :method WHERE id = :billId")
+    suspend fun updateBillPaymentMethod(billId: Long, method: PaymentMethod?): Int
 }
+

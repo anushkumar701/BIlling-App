@@ -30,6 +30,7 @@ data class TodayStats(
     val cashSales: BigDecimal = BigDecimal.ZERO,
     val upiSales: BigDecimal = BigDecimal.ZERO,
     val unspecifiedSales: BigDecimal = BigDecimal.ZERO,
+    val unspecifiedBillCount: Int = 0,
     val activeAndHeldBillCount: Int = 0
 )
 
@@ -77,6 +78,7 @@ class BillRepository(
             var cash = BigDecimal.ZERO
             var upi = BigDecimal.ZERO
             var unspecified = BigDecimal.ZERO
+            var unspecifiedCount = 0
             var total = BigDecimal.ZERO
 
             for (bill in bills) {
@@ -85,7 +87,10 @@ class BillRepository(
                 when (bill.paymentMethod) {
                     PaymentMethod.CASH -> cash = cash.add(amount)
                     PaymentMethod.UPI -> upi = upi.add(amount)
-                    null -> unspecified = unspecified.add(amount)
+                    null -> {
+                        unspecified = unspecified.add(amount)
+                        unspecifiedCount++
+                    }
                 }
             }
 
@@ -95,6 +100,7 @@ class BillRepository(
                 cashSales = cash,
                 upiSales = upi,
                 unspecifiedSales = unspecified,
+                unspecifiedBillCount = unspecifiedCount,
                 activeAndHeldBillCount = activeCount
             )
         }
@@ -305,6 +311,22 @@ class BillRepository(
                 Result.success(Unit)
             }
         }
+
+    /**
+     * Updates payment method on any bill (e.g. from History screen where cashier tags
+     * Cash or UPI retrospectively, or switches payment method).
+     */
+    suspend fun updateCompletedBillPaymentMethod(billId: Long, method: PaymentMethod?): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                if (billDao.getBillById(billId) == null) {
+                    return@withTransaction Result.failure(IllegalArgumentException("Bill not found."))
+                }
+                billDao.updateBillPaymentMethod(billId, method)
+                Result.success(Unit)
+            }
+        }
+
 
     /**
      * Empty-bill delete is allowed for a genuinely empty draft (§11).

@@ -38,13 +38,16 @@ data class BillItem(
 ) {
     /**
      * Formatted expression with product name if tagged (Beginner mode)
-     * e.g. "Apple 450g" or "300 × 450g"
+     * e.g. "Apple: 300 × 450g" or "200 × 750g" (never decimals like 0.75)
      */
     val displayExpression: String
-        get() = if (!productNameSnapshot.isNullOrBlank()) {
-            "$productNameSnapshot: $expression"
-        } else {
-            expression
+        get() {
+            val pretty = com.fruitbilling.app.util.CalculatorEngine.prettyExpression(expression)
+            return if (!productNameSnapshot.isNullOrBlank()) {
+                "$productNameSnapshot: $pretty"
+            } else {
+                pretty
+            }
         }
 
     /**
@@ -55,16 +58,7 @@ data class BillItem(
             return when (unit) {
                 ProductUnit.KG -> {
                     val qty = quantityOrWeight ?: return null
-                    val grams = normalizedWeight ?: qty.multiply(BigDecimal("1000"))
-                    val gramsLong = grams.setScale(0, RoundingMode.HALF_UP).toLong()
-                    if (gramsLong >= 1000 && gramsLong % 1000 == 0L) {
-                        "${gramsLong / 1000}kg"
-                    } else if (gramsLong >= 1000) {
-                        val kgStr = qty.stripTrailingZeros().toPlainString()
-                        "${kgStr}kg"
-                    } else {
-                        "${gramsLong}g"
-                    }
+                    com.fruitbilling.app.util.CalculatorEngine.formatWeight(qty)
                 }
                 ProductUnit.PIECE -> {
                     val qty = quantityOrWeight?.toInt() ?: return null

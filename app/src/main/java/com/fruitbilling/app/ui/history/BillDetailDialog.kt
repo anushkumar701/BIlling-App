@@ -1,11 +1,15 @@
 package com.fruitbilling.app.ui.history
 
+import android.content.Intent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -13,23 +17,58 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.fruitbilling.app.data.model.BillItem
 import com.fruitbilling.app.data.model.BillWithItems
+import com.fruitbilling.app.data.model.PaymentMethod
+import com.fruitbilling.app.ui.theme.CashGreen
+import com.fruitbilling.app.ui.theme.UpiBlue
 import com.fruitbilling.app.util.DateUtils
 import com.fruitbilling.app.util.MoneyUtils
 
 @Composable
 fun BillDetailDialog(
     billWithItems: BillWithItems,
+    onUpdatePaymentMethod: (PaymentMethod?) -> Unit,
     onDismiss: () -> Unit
 ) {
     val bill = billWithItems.bill
+    val context = LocalContext.current
+
+    fun shareReceipt() {
+        val dateStr = bill.completedAt?.let { DateUtils.formatDetailedTimestamp(it) } ?: ""
+        val payMode = bill.paymentMethod?.label ?: "Unspecified"
+        val itemsStr = billWithItems.items.joinToString("\n") { item ->
+            val expr = item.displayExpression
+            val amt = MoneyUtils.formatPrice(item.calculatedAmount)
+            "$expr = $amt"
+        }
+        val totalStr = MoneyUtils.formatPrice(bill.effectiveChargedAmount)
+
+        val receiptText = """
+            *🍎 Fruit Shop Receipt*
+            Bill ${bill.formattedBillNumber} · $dateStr
+            --------------------------------
+            $itemsStr
+            --------------------------------
+            *TOTAL: $totalStr* ($payMode)
+            Thank you! Visit again.
+        """.trimIndent()
+
+        val sendIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, receiptText)
+            type = "text/plain"
+        }
+        val shareIntent = Intent.createChooser(sendIntent, "Share Receipt")
+        context.startActivity(shareIntent)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -44,15 +83,25 @@ fun BillDetailDialog(
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
 
+                val isUpi = bill.paymentMethod == PaymentMethod.UPI
+                val isCash = bill.paymentMethod == PaymentMethod.CASH
                 Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    color = when {
+                        isUpi -> UpiBlue.copy(alpha = 0.15f)
+                        isCash -> CashGreen.copy(alpha = 0.15f)
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    },
                     shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
-                        text = bill.paymentMethod?.label ?: "Not specified",
+                        text = bill.paymentMethod?.label ?: "⚠️ Unspecified",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = when {
+                                isUpi -> UpiBlue
+                                isCash -> CashGreen
+                                else -> MaterialTheme.colorScheme.outline
+                            }
                         ),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
@@ -75,7 +124,7 @@ fun BillDetailDialog(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-                // Calculations list (§5 & §16)
+                // Calculations list
                 Text(
                     text = "Calculations (${billWithItems.items.size}):",
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
@@ -144,7 +193,7 @@ fun BillDetailDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp),
+                        .padding(top = 2.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
@@ -159,12 +208,94 @@ fun BillDetailDialog(
                         )
                     )
                 }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+
+                // ── Interactive Payment Mode Switcher ──────────────────────────
+                // Cashiers can set or change to Cash or UPI anytime.
+                // Tapping the selected option deselects back to unspecified.
+                // No explicit "Unspecified" button exists.
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Change Payment Mode:",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        DetailPaymentChip(
+                            label = "💵 Cash",
+                            isSelected = bill.paymentMethod == PaymentMethod.CASH,
+                            activeColor = CashGreen,
+                            onClick = {
+                                if (bill.paymentMethod == PaymentMethod.CASH) {
+                                    onUpdatePaymentMethod(null) // deselect
+                                } else {
+                                    onUpdatePaymentMethod(PaymentMethod.CASH)
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        DetailPaymentChip(
+                            label = "📱 UPI / GPay",
+                            isSelected = bill.paymentMethod == PaymentMethod.UPI,
+                            activeColor = UpiBlue,
+                            onClick = {
+                                if (bill.paymentMethod == PaymentMethod.UPI) {
+                                    onUpdatePaymentMethod(null) // deselect
+                                } else {
+                                    onUpdatePaymentMethod(PaymentMethod.UPI)
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(onClick = onDismiss) {
-                Text("Close")
+                Text("Done", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = ::shareReceipt) {
+                Text("📤 Share Receipt", fontWeight = FontWeight.SemiBold)
             }
         }
     )
+}
+
+@Composable
+private fun DetailPaymentChip(
+    label: String,
+    isSelected: Boolean,
+    activeColor: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSelected) activeColor.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = if (isSelected) BorderStroke(1.5.dp, activeColor) else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        modifier = modifier.height(38.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+        }
+    }
 }
