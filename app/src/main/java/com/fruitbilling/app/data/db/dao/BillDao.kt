@@ -86,6 +86,9 @@ interface BillDao {
     @Query("SELECT * FROM bills WHERE status = 'COMPLETED' ORDER BY completedAt DESC")
     fun getAllCompletedBills(): Flow<List<Bill>>
 
+    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' ORDER BY completedAt DESC")
+    suspend fun getAllCompletedBillsSync(): List<Bill>
+
     @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND completedAt >= :sinceTimestamp ORDER BY completedAt DESC")
     fun getCompletedBillsSince(sinceTimestamp: Long): Flow<List<Bill>>
 

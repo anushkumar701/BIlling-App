@@ -10,7 +10,9 @@ import java.math.BigDecimal
     indices = [
         Index(value = ["billNumber"], unique = true),
         Index(value = ["status"]),
-        Index(value = ["completedAt"])
+        Index(value = ["completedAt"]),
+        Index(value = ["status", "completedAt"]),
+        Index(value = ["paymentMethod"])
     ]
 )
 data class Bill(

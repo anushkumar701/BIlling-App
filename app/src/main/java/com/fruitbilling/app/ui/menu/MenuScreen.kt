@@ -47,6 +47,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
+import com.fruitbilling.app.data.backup.GoogleAuthManager
+import com.fruitbilling.app.util.DateUtils
 import androidx.compose.ui.unit.sp
 import com.fruitbilling.app.data.model.Product
 import com.fruitbilling.app.util.MoneyUtils
@@ -59,10 +66,36 @@ fun MenuScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
+        viewModel.initContextData(context)
         viewModel.snackbarMessages.collect { message ->
             snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    val signInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val userResult = GoogleAuthManager.handleSignInResult(result.data)
+        userResult.onSuccess { user ->
+            viewModel.onGoogleSignInSuccess(user)
+        }
+    }
+
+    val restoreFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val jsonString = context.contentResolver.openInputStream(uri)?.use { stream ->
+                    stream.bufferedReader().readText()
+                }
+                if (!jsonString.isNullOrBlank()) {
+                    viewModel.onRestoreBackup(jsonString)
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -126,10 +159,223 @@ fun MenuScreen(
                 )
             }
 
+            // Google Account & Cloud Backup Section (§Google Login to Save Data)
+            item {
+                Spacer(modifier = Modifier.height(14.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "☁️", fontSize = 20.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Google Account & Cloud Backup",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+
+                        // Google Sign-In Status
+                        if (uiState.googleUser != null) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = uiState.googleUser?.displayName ?: "Google User",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                        Text(
+                                            text = uiState.googleUser?.email ?: "",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                    }
+                                    OutlinedButton(
+                                        onClick = { viewModel.onSignOut(context) },
+                                        shape = RoundedCornerShape(6.dp),
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("Sign Out", fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = {
+                                    signInLauncher.launch(GoogleAuthManager.getSignInIntent(context))
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "🔑 Sign in with Google Account",
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Text(
+                                text = "Sign in to securely backup your bill history and fruit catalog to Google Drive.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                        // Backup Status & Action
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Last Cloud Backup",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                                Text(
+                                    text = if (uiState.lastBackupTimestamp > 0)
+                                        DateUtils.formatBillTimestamp(uiState.lastBackupTimestamp)
+                                    else
+                                        "Never backed up yet",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
+                                )
+                            }
+
+                            Button(
+                                onClick = { viewModel.onBackupToDrive(context) },
+                                enabled = !uiState.isBackingUp,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                if (uiState.isBackingUp) {
+                                    androidx.compose.material3.CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Saving…")
+                                } else {
+                                    Text("💾 Backup Now")
+                                }
+                            }
+                        }
+
+                        // Restore Action
+                        OutlinedButton(
+                            onClick = {
+                                restoreFileLauncher.launch("application/json")
+                            },
+                            enabled = !uiState.isRestoring,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            if (uiState.isRestoring) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Restoring…")
+                            } else {
+                                Text("🔄 Restore from Backup File (JSON)")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // OTA Updates Section (§Over-The-Air Updates)
+            item {
+                Spacer(modifier = Modifier.height(10.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "🚀", fontSize = 20.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "Over-The-Air (OTA) Updates",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Text(
+                                        text = "Installed: v${com.fruitbilling.app.BuildConfig.VERSION_NAME}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = { viewModel.onCheckForUpdates(userInitiated = true) },
+                                enabled = !uiState.isCheckingUpdate,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                if (uiState.isCheckingUpdate) {
+                                    androidx.compose.material3.CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Checking…")
+                                } else {
+                                    Text("Check Updates")
+                                }
+                            }
+                        }
+                        Text(
+                            text = "Direct GitHub release update channel without Play Store dependency. Seamless 1-tap download & install.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+            }
+
             // Settings & App Info Section
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
@@ -152,7 +398,7 @@ fun MenuScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Fruit Billing App v1.0.0",
+                                text = "Fruit Billing App v${com.fruitbilling.app.BuildConfig.VERSION_NAME}",
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                             )
                         }
@@ -196,6 +442,51 @@ fun MenuScreen(
                 product = productToDelete,
                 onConfirm = viewModel::onConfirmDelete,
                 onDismiss = viewModel::onCancelDelete
+            )
+        }
+
+        // OTA Update Available Dialog
+        if (uiState.showUpdateDialog && uiState.updateReleaseInfo != null) {
+            val release = uiState.updateReleaseInfo!!
+            AlertDialog(
+                onDismissRequest = viewModel::onDismissUpdateDialog,
+                title = {
+                    Text(
+                        text = "🚀 Update Available: ${release.latestVersion}",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = release.releaseTitle,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                        Text(
+                            text = release.releaseNotes,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Current: v${release.currentVersion}  →  Latest: ${release.latestVersion}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.onInstallUpdate(context) },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Download & Install")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::onDismissUpdateDialog) {
+                        Text("Later")
+                    }
+                }
             )
         }
     }

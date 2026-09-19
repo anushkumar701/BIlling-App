@@ -53,6 +53,12 @@ import com.fruitbilling.app.ui.theme.UpiBlue
 import com.fruitbilling.app.util.DateUtils
 import com.fruitbilling.app.util.MoneyUtils
 
+import android.widget.Toast
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalContext
+import com.fruitbilling.app.util.CsvExportManager
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
@@ -60,6 +66,7 @@ fun HistoryScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -71,6 +78,26 @@ fun HistoryScreen(
                             text = "History & Summary",
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
+                    },
+                    actions = {
+                        if (uiState.completedBills.isNotEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    val res = CsvExportManager.exportBillsToCsv(context, uiState.completedBills)
+                                    res.onSuccess { file ->
+                                        CsvExportManager.shareCsvFile(context, file)
+                                    }.onFailure { err ->
+                                        Toast.makeText(context, "Export failed: ${err.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Export CSV",
+                                    tint = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
+                        }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -117,6 +144,7 @@ fun HistoryScreen(
             HistoryTab.SUMMARY -> {
                 BusinessSummaryContent(
                     summary = uiState.businessSummary,
+                    completedBills = uiState.completedBills,
                     modifier = Modifier.padding(innerPadding)
                 )
             }
@@ -521,8 +549,11 @@ fun HistoryBillRow(
 @Composable
 private fun BusinessSummaryContent(
     summary: MonthSalesSummary,
+    completedBills: List<BillWithItems> = emptyList(),
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -576,6 +607,63 @@ private fun BusinessSummaryContent(
                         SummaryPill(label = "Cash", value = MoneyUtils.formatWholePrice(summary.cashSales))
                         SummaryPill(label = "UPI", value = MoneyUtils.formatWholePrice(summary.upiSales))
                         SummaryPill(label = "Avg Bill", value = MoneyUtils.formatWholePrice(summary.avgBill))
+                    }
+                }
+            }
+        }
+
+        // Export Sales to CSV / Excel Card
+        if (completedBills.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val res = CsvExportManager.exportBillsToCsv(context, completedBills)
+                            res.onSuccess { file ->
+                                CsvExportManager.shareCsvFile(context, file)
+                            }.onFailure { err ->
+                                Toast.makeText(context, "Export failed: ${err.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(text = "📊", fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Export Sales to Excel / CSV",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = "Clean report with all bills, item formulas & payment totals",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Export",
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }

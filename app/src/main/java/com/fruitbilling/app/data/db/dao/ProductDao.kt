@@ -17,6 +17,9 @@ interface ProductDao {
     @Query("SELECT * FROM products ORDER BY name ASC")
     fun getAllProducts(): Flow<List<Product>>
 
+    @Query("SELECT * FROM products ORDER BY name ASC")
+    suspend fun getAllProductsSync(): List<Product>
+
     @Query("SELECT * FROM products WHERE id = :id LIMIT 1")
     suspend fun getProductById(id: Long): Product?
 

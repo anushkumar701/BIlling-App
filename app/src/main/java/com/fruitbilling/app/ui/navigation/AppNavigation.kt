@@ -130,7 +130,8 @@ fun AppNavigation(
             composable(Screen.Menu.route) {
                 val menuViewModel: MenuViewModel = viewModel(
                     factory = MenuViewModelFactory(
-                        productRepository = app.productRepository
+                        productRepository = app.productRepository,
+                        database = app.database
                     )
                 )
                 MenuScreen(viewModel = menuViewModel)
