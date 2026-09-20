@@ -139,14 +139,16 @@ object CloudBackupManager {
         context.startActivity(chooser)
     }
 
-    suspend fun restoreFromJson(jsonString: String, database: AppDatabase): Result<Int> =
+    suspend fun restoreFromJson(jsonString: String, database: AppDatabase): Result<RestoreResult> =
         withContext(Dispatchers.IO) {
             try {
                 val root = JSONObject(jsonString)
                 val productsArray = root.optJSONArray("products") ?: JSONArray()
-                var restoredCount = 0
+                val billsArray = root.optJSONArray("bills") ?: JSONArray()
+                var restoredProducts = 0
+                var restoredBills = 0
 
-                // Restore products
+                // 1. Restore products
                 for (i in 0 until productsArray.length()) {
                     val pObj = productsArray.getJSONObject(i)
                     val name = pObj.getString("name")
@@ -161,13 +163,111 @@ object CloudBackupManager {
                         database.productDao().insertProduct(
                             Product(name = name, price = price, unit = unit, active = active)
                         )
-                        restoredCount++
+                        restoredProducts++
                     }
                 }
 
-                Result.success(restoredCount)
+                // 2. Restore completed bills and items
+                for (i in 0 until billsArray.length()) {
+                    val bObj = billsArray.getJSONObject(i)
+                    val billNumber = bObj.getInt("billNumber")
+                    val createdAt = bObj.getLong("createdAt")
+
+                    // Check if exact same bill already exists
+                    val existingBillId = database.billDao().getBillByNumberAndCreatedAt(billNumber, createdAt)
+                    if (existingBillId == null) {
+                        // Check if billNumber is already occupied by a different bill; if so, allocate next number
+                        val assignedBillNumber = if (database.billDao().getBillIdByBillNumber(billNumber) != null) {
+                            (database.billDao().getMaxUsedBillNumber() ?: 0) + 1
+                        } else {
+                            billNumber
+                        }
+
+                        val status = try {
+                            BillStatus.valueOf(bObj.optString("status", "COMPLETED"))
+                        } catch (_: Exception) { BillStatus.COMPLETED }
+                        val calculatedTotal = BigDecimal(bObj.getString("calculatedTotal"))
+                        val finalAmount = if (bObj.has("finalAmount") && !bObj.isNull("finalAmount")) {
+                            BigDecimal(bObj.getString("finalAmount"))
+                        } else null
+                        val paymentMethod = if (bObj.has("paymentMethod") && !bObj.isNull("paymentMethod")) {
+                            try {
+                                PaymentMethod.valueOf(bObj.getString("paymentMethod"))
+                            } catch (_: Exception) { null }
+                        } else null
+                        val completedAt = if (bObj.has("completedAt") && !bObj.isNull("completedAt")) {
+                            bObj.getLong("completedAt")
+                        } else null
+
+                        val billToInsert = Bill(
+                            billNumber = assignedBillNumber,
+                            status = status,
+                            calculatedTotal = calculatedTotal,
+                            finalAmount = finalAmount,
+                            paymentMethod = paymentMethod,
+                            createdAt = createdAt,
+                            completedAt = completedAt
+                        )
+
+                        val newBillId = database.billDao().insertBill(billToInsert)
+
+                        // Insert items for this bill
+                        val itemsArray = bObj.optJSONArray("items") ?: JSONArray()
+                        val itemsToInsert = mutableListOf<BillItem>()
+                        for (j in 0 until itemsArray.length()) {
+                            val itObj = itemsArray.getJSONObject(j)
+                            val expression = itObj.optString("expression", "")
+                            val calculatedAmount = BigDecimal(itObj.getString("calculatedAmount"))
+                            val productId = if (itObj.has("productId") && !itObj.isNull("productId")) {
+                                itObj.getLong("productId")
+                            } else null
+                            val productNameSnapshot = itObj.optString("productNameSnapshot").takeIf { it.isNotBlank() }
+                            val unitPriceSnapshot = if (itObj.has("unitPriceSnapshot") && !itObj.isNull("unitPriceSnapshot")) {
+                                BigDecimal(itObj.getString("unitPriceSnapshot"))
+                            } else null
+                            val unit = if (itObj.has("unit") && !itObj.isNull("unit")) {
+                                try {
+                                    ProductUnit.valueOf(itObj.getString("unit"))
+                                } catch (_: Exception) { null }
+                            } else null
+                            val quantityOrWeight = if (itObj.has("quantityOrWeight") && !itObj.isNull("quantityOrWeight")) {
+                                BigDecimal(itObj.getString("quantityOrWeight"))
+                            } else null
+
+                            itemsToInsert.add(
+                                BillItem(
+                                    billId = newBillId,
+                                    expression = expression,
+                                    calculatedAmount = calculatedAmount,
+                                    productId = productId,
+                                    productNameSnapshot = productNameSnapshot,
+                                    unitPriceSnapshot = unitPriceSnapshot,
+                                    unit = unit,
+                                    quantityOrWeight = quantityOrWeight,
+                                    createdAt = createdAt
+                                )
+                            )
+                        }
+
+                        if (itemsToInsert.isNotEmpty()) {
+                            database.billItemDao().insertAll(itemsToInsert)
+                        }
+
+                        restoredBills++
+                    }
+                }
+
+                Result.success(RestoreResult(restoredProducts, restoredBills))
             } catch (e: Exception) {
                 Result.failure(e)
             }
         }
 }
+
+data class RestoreResult(
+    val productsRestored: Int,
+    val billsRestored: Int
+) {
+    val totalCount: Int get() = productsRestored + billsRestored
+}
+

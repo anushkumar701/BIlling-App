@@ -29,7 +29,7 @@ object BackupManager {
                 val now = System.currentTimeMillis()
 
                 if (now - lastBackup >= ONE_DAY_MILLIS) {
-                    val success = createBackupSnapshot(context)
+                    val success = createBackupSnapshot(context, database)
                     if (success) {
                         prefs.edit().putLong(KEY_LAST_BACKUP, now).apply()
                         Log.d(TAG, "Daily backup snapshot completed successfully at $now")
@@ -43,8 +43,19 @@ object BackupManager {
         }
     }
 
-    fun createBackupSnapshot(context: Context): Boolean {
+    fun createBackupSnapshot(context: Context, database: AppDatabase? = null): Boolean {
         return try {
+            // Checkpoint SQLite WAL mode if database connection is available
+            database?.let { db ->
+                try {
+                    db.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)").use { cursor ->
+                        cursor.moveToFirst()
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "WAL checkpoint warning: ${e.message}")
+                }
+            }
+
             val dbFile = context.getDatabasePath("fruit_billing_database")
             if (!dbFile.exists()) return false
 

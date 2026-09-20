@@ -112,6 +112,11 @@ object OtaUpdateManager {
      * Downloads the APK file using Android's DownloadManager and prompts for installation.
      */
     fun startDownloadAndInstall(context: Context, downloadUrl: String, versionTag: String) {
+        if (!downloadUrl.startsWith("https://", ignoreCase = true)) {
+            android.widget.Toast.makeText(context, "Invalid or insecure download URL", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val appContext = context.applicationContext
         val fileName = "FruitBilling_${versionTag.replace(".", "_")}.apk"
         val destinationFile = File(
@@ -165,12 +170,8 @@ object OtaUpdateManager {
             }
             context.startActivity(installIntent)
         } catch (e: Exception) {
-            // Fallback: Open file directly via system intent
-            val fallbackIntent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(Uri.fromFile(apkFile), "application/vnd.android.package-archive")
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            }
-            context.startActivity(fallbackIntent)
+            android.util.Log.e("OtaUpdateManager", "Failed to launch APK installer: ${e.message}", e)
+            android.widget.Toast.makeText(context, "Cannot open APK installer: ${e.localizedMessage}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 }

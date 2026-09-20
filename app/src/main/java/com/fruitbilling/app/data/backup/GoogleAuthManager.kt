@@ -144,6 +144,29 @@ object GoogleAuthManager {
             return Result.success(user)
         }
 
+        // 4. Defensive scan across all intent extras for email address (for OEM custom account pickers)
+        data.extras?.let { bundle ->
+            for (key in bundle.keySet()) {
+                val value = bundle.get(key)?.toString()?.trim() ?: continue
+                if (value.contains("@") && value.contains(".") && !value.contains(" ") && value.length > 5) {
+                    val formattedName = value.substringBefore('@')
+                        .replace('.', ' ')
+                        .replace('_', ' ')
+                        .split(' ')
+                        .filter { it.isNotBlank() }
+                        .joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
+
+                    val user = GoogleUserData(
+                        displayName = formattedName.ifBlank { value },
+                        email = value,
+                        photoUrl = null
+                    )
+                    saveSignedInAccount(context, user)
+                    return Result.success(user)
+                }
+            }
+        }
+
         return Result.failure(Exception("Could not retrieve selected Google account"))
     }
 

@@ -98,5 +98,13 @@ interface BillDao {
 
     @Query("UPDATE bills SET paymentMethod = :method WHERE id = :billId")
     suspend fun updateBillPaymentMethod(billId: Long, method: PaymentMethod?): Int
+
+    @Query("SELECT id FROM bills WHERE billNumber = :billNumber AND createdAt = :createdAt LIMIT 1")
+    suspend fun getBillByNumberAndCreatedAt(billNumber: Int, createdAt: Long): Long?
+
+    @Query("SELECT id FROM bills WHERE billNumber = :billNumber LIMIT 1")
+    suspend fun getBillIdByBillNumber(billNumber: Int): Long?
 }
+
+
 

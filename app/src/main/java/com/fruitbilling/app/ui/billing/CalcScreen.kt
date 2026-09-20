@@ -218,7 +218,8 @@ fun CalcScreen(
                 initialPaymentMethod = uiState.selectedPaymentMethod,
                 isSaving = uiState.isSaving,
                 onConfirmSave = viewModel::onConfirmSaveBill,
-                onDismiss = viewModel::onDismissSaveBillPrompt
+                onDismiss = viewModel::onDismissSaveBillPrompt,
+                onDeleteItem = viewModel::onDirectDeleteItem
             )
         }
     }

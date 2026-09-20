@@ -55,8 +55,12 @@ import com.fruitbilling.app.util.DateUtils
 import com.fruitbilling.app.util.MoneyUtils
 
 import android.widget.Toast
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.ui.platform.LocalContext
 import com.fruitbilling.app.util.CsvExportManager
 
@@ -138,6 +142,8 @@ fun HistoryScreen(
                     todayStats = uiState.todayStats,
                     selectedFilter = uiState.selectedFilter,
                     onFilterSelected = viewModel::onFilterSelected,
+                    searchQuery = uiState.searchQuery,
+                    onSearchQueryChange = viewModel::onSearchQueryChanged,
                     onUpdatePaymentMethod = viewModel::onUpdatePaymentMethod,
                     onBillSelected = viewModel::onBillSelected,
                     modifier = Modifier.padding(innerPadding)
@@ -175,6 +181,8 @@ private fun BillsListContent(
     todayStats: TodayStats,
     selectedFilter: PaymentFilter,
     onFilterSelected: (PaymentFilter) -> Unit,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
     onUpdatePaymentMethod: (Long, PaymentMethod?) -> Unit,
     onBillSelected: (BillWithItems) -> Unit,
     modifier: Modifier = Modifier
@@ -193,7 +201,48 @@ private fun BillsListContent(
             )
         }
 
-        // ── 2. Payment Filter Chips ──────────────────────────────────────────
+        // ── 2. Search Field ──────────────────────────────────────────────────
+        item {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = {
+                    Text(
+                        "Search by bill #, fruit name, or amount…",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearchQueryChange("") }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear search",
+                                tint = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        }
+
+        // ── 3. Payment Filter Chips ──────────────────────────────────────────
         item {
             Row(
                 modifier = Modifier
@@ -226,7 +275,7 @@ private fun BillsListContent(
             }
         }
 
-        // ── 3. Bills List / Empty State ──────────────────────────────────────
+        // ── 4. Bills List / Empty State ──────────────────────────────────────
         if (bills.isEmpty()) {
             item {
                 Box(
@@ -236,10 +285,11 @@ private fun BillsListContent(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (totalCompletedCount == 0)
-                            "No completed bills yet.\nCompleted bills from the Billing tab will appear here."
-                        else
-                            "No bills match the selected filter.",
+                        text = when {
+                            searchQuery.isNotBlank() -> "No bills match \"$searchQuery\""
+                            totalCompletedCount == 0 -> "No completed bills yet.\nCompleted bills from the Billing tab will appear here."
+                            else -> "No bills match the selected filter."
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline,
                         textAlign = TextAlign.Center

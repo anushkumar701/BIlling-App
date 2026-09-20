@@ -40,14 +40,29 @@ data class HistoryUiState(
     ),
     val selectedTab: HistoryTab = HistoryTab.BILLS,
     val selectedFilter: PaymentFilter = PaymentFilter.ALL,
+    val searchQuery: String = "",
     val selectedBillForDetail: BillWithItems? = null
 ) {
     val filteredBills: List<BillWithItems>
-        get() = when (selectedFilter) {
-            PaymentFilter.ALL -> completedBills
-            PaymentFilter.PENDING -> completedBills.filter { it.bill.paymentMethod == null }
-            PaymentFilter.CASH -> completedBills.filter { it.bill.paymentMethod == PaymentMethod.CASH }
-            PaymentFilter.UPI -> completedBills.filter { it.bill.paymentMethod == PaymentMethod.UPI }
+        get() {
+            val byPayment = when (selectedFilter) {
+                PaymentFilter.ALL -> completedBills
+                PaymentFilter.PENDING -> completedBills.filter { it.bill.paymentMethod == null }
+                PaymentFilter.CASH -> completedBills.filter { it.bill.paymentMethod == PaymentMethod.CASH }
+                PaymentFilter.UPI -> completedBills.filter { it.bill.paymentMethod == PaymentMethod.UPI }
+            }
+            if (searchQuery.isBlank()) return byPayment
+            val q = searchQuery.trim().lowercase()
+            return byPayment.filter { billWithItems ->
+                billWithItems.bill.billNumber.toString().contains(q) ||
+                billWithItems.bill.formattedBillNumber.lowercase().contains(q) ||
+                (billWithItems.bill.finalAmount?.toPlainString()?.contains(q) == true) ||
+                (billWithItems.bill.calculatedTotal.toPlainString().contains(q)) ||
+                billWithItems.items.any { item ->
+                    item.productNameSnapshot?.lowercase()?.contains(q) == true ||
+                    item.expression.lowercase().contains(q)
+                }
+            }
         }
 
     val pendingCount: Int
@@ -102,6 +117,11 @@ class HistoryViewModel(
     fun onFilterSelected(filter: PaymentFilter) {
         _uiState.value = _uiState.value.copy(selectedFilter = filter)
     }
+
+    fun onSearchQueryChanged(query: String) {
+        _uiState.value = _uiState.value.copy(searchQuery = query)
+    }
+
 
     fun onBillSelected(bill: BillWithItems) {
         _uiState.value = _uiState.value.copy(selectedBillForDetail = bill)

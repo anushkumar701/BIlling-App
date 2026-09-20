@@ -42,32 +42,8 @@ fun BillDetailDialog(
     val context = LocalContext.current
 
     fun shareReceipt() {
-        val dateStr = bill.completedAt?.let { DateUtils.formatDetailedTimestamp(it) } ?: ""
-        val payMode = bill.paymentMethod?.label ?: "Unspecified"
-        val itemsStr = billWithItems.items.joinToString("\n") { item ->
-            val expr = item.displayExpression
-            val amt = MoneyUtils.formatPrice(item.calculatedAmount)
-            "$expr = $amt"
-        }
-        val totalStr = MoneyUtils.formatPrice(bill.effectiveChargedAmount)
-
-        val receiptText = """
-            *🍎 Fruit Shop Receipt*
-            Bill ${bill.formattedBillNumber} · $dateStr
-            --------------------------------
-            $itemsStr
-            --------------------------------
-            *TOTAL: $totalStr* ($payMode)
-            Thank you! Visit again.
-        """.trimIndent()
-
-        val sendIntent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, receiptText)
-            type = "text/plain"
-        }
-        val shareIntent = Intent.createChooser(sendIntent, "Share Receipt")
-        context.startActivity(shareIntent)
+        val receiptText = com.fruitbilling.app.util.ReceiptUtils.generateReceiptText(billWithItems)
+        com.fruitbilling.app.util.ReceiptUtils.shareReceipt(context, receiptText, "Share Receipt - ${bill.formattedBillNumber}")
     }
 
     AlertDialog(

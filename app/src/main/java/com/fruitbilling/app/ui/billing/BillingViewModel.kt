@@ -380,6 +380,18 @@ class BillingViewModel(
         }
     }
 
+    /** 1-tap direct deletion with Undo support (e.g. from SaveBillDialog review list) */
+    fun onDirectDeleteItem(item: BillItem) {
+        viewModelScope.launch {
+            billRepository.removeCalculation(item)
+            _uiState.value = _uiState.value.copy(
+                lastDeletedItem = item
+            )
+            _snackbarMessages.emit("Deleted · tap Undo to restore")
+        }
+    }
+
+
     /** Restores the last deleted item — called from the Snackbar Undo action */
     fun onUndoDeleteItem() {
         val item = _uiState.value.lastDeletedItem ?: return

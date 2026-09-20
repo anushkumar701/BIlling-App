@@ -110,9 +110,15 @@ class MenuViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRestoring = true)
             val result = CloudBackupManager.restoreFromJson(jsonString, database)
-            result.onSuccess { count ->
+            result.onSuccess { stats ->
                 _uiState.value = _uiState.value.copy(isRestoring = false)
-                _snackbarMessages.emit("Restored $count items successfully!")
+                val msg = when {
+                    stats.totalCount == 0 -> "Backup data is already up-to-date. No new items."
+                    stats.billsRestored == 0 -> "Restored ${stats.productsRestored} products successfully!"
+                    stats.productsRestored == 0 -> "Restored ${stats.billsRestored} bills successfully!"
+                    else -> "Restored ${stats.productsRestored} products & ${stats.billsRestored} bills successfully!"
+                }
+                _snackbarMessages.emit(msg)
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(isRestoring = false)
                 _snackbarMessages.emit("Restore failed: ${error.message}")
