@@ -392,11 +392,6 @@ fun MenuScreen(
                                 }
                             }
                         }
-                        Text(
-                            text = "Direct GitHub release update channel without Play Store dependency. Seamless 1-tap download & install.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline
-                        )
                     }
                 }
             }

@@ -41,6 +41,28 @@ object CloudBackupManager {
         prefs.edit().putLong(KEY_LAST_CLOUD_BACKUP, timestamp).apply()
     }
 
+    /**
+     * Checks whether a backup has already been completed today.
+     * If already backed up today, no need to check or backup again that day.
+     */
+    fun hasBackedUpToday(context: Context): Boolean {
+        val lastTime = getLastBackupTime(context)
+        if (lastTime <= 0L) return false
+        val (start, end) = com.fruitbilling.app.util.DateUtils.getTodayStartAndEndMillis()
+        return lastTime in start..end
+    }
+
+    /**
+     * Automatically backs up database data if not already done today.
+     * Once backed up today, returns null and does nothing.
+     */
+    suspend fun autoBackupIfDailyDue(context: Context, database: AppDatabase): Result<File>? {
+        if (hasBackedUpToday(context)) {
+            return null
+        }
+        return createBackupJson(context, database)
+    }
+
     suspend fun createBackupJson(context: Context, database: AppDatabase): Result<File> =
         withContext(Dispatchers.IO) {
             try {

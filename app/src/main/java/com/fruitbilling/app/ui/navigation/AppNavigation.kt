@@ -103,11 +103,15 @@ fun AppNavigation(
     }
 
     LaunchedEffect(Unit) {
-        val update = withContext(Dispatchers.IO) {
-            OtaUpdateManager.checkUpdateOnLaunchIfDue(context)
-        }
-        if (update != null) {
-            launchUpdateInfo = update
+        withContext(Dispatchers.IO) {
+            // Daily check: auto backup if not done yet today
+            CloudBackupManager.autoBackupIfDailyDue(context, app.database)
+
+            // Daily OTA update check
+            val update = OtaUpdateManager.checkUpdateOnLaunchIfDue(context)
+            if (update != null) {
+                launchUpdateInfo = update
+            }
         }
     }
 
