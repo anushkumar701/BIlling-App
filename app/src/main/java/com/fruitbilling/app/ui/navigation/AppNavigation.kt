@@ -12,10 +12,18 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.core.view.WindowCompat
@@ -27,16 +35,25 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.fruitbilling.app.FruitBillingApp
+import com.fruitbilling.app.data.backup.CloudBackupManager
+import com.fruitbilling.app.data.backup.GoogleAuthManager
 import com.fruitbilling.app.ui.billing.BillingScreen
 import com.fruitbilling.app.ui.billing.BillingViewModel
 import com.fruitbilling.app.ui.billing.BillingViewModelFactory
 import com.fruitbilling.app.ui.billing.CalcScreen
+import com.fruitbilling.app.ui.common.OnboardingDialog
+import com.fruitbilling.app.ui.common.SimpleUpdateDialog
 import com.fruitbilling.app.ui.history.HistoryScreen
 import com.fruitbilling.app.ui.history.HistoryViewModel
 import com.fruitbilling.app.ui.history.HistoryViewModelFactory
 import com.fruitbilling.app.ui.menu.MenuScreen
 import com.fruitbilling.app.ui.menu.MenuViewModel
 import com.fruitbilling.app.ui.menu.MenuViewModelFactory
+import com.fruitbilling.app.util.AppReleaseInfo
+import com.fruitbilling.app.util.OtaUpdateManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun AppNavigation(
@@ -64,6 +81,33 @@ fun AppNavigation(
             val insetsController = WindowCompat.getInsetsController(window, view)
             val isDarkTopBar = currentRoute == Screen.History.route || currentRoute == Screen.Menu.route
             insetsController.isAppearanceLightStatusBars = if (isDarkTopBar) false else !darkTheme
+        }
+    }
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var isOnboardingOpen by remember { mutableStateOf(!GoogleAuthManager.isOnboardingCompleted(context)) }
+    var launchUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
+
+    val onboardingSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val userResult = GoogleAuthManager.handleSignInResult(context, result.data)
+        userResult.onSuccess {
+            GoogleAuthManager.setOnboardingCompleted(context)
+            isOnboardingOpen = false
+            coroutineScope.launch(Dispatchers.IO) {
+                CloudBackupManager.autoRestoreLatestBackupIfAvailable(context, app.database)
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val update = withContext(Dispatchers.IO) {
+            OtaUpdateManager.checkUpdateOnLaunchIfDue(context)
+        }
+        if (update != null) {
+            launchUpdateInfo = update
         }
     }
 
@@ -157,6 +201,33 @@ fun AppNavigation(
                 )
                 MenuScreen(viewModel = menuViewModel)
             }
+        }
+
+        if (isOnboardingOpen) {
+            OnboardingDialog(
+                onSignInWithGoogle = {
+                    onboardingSignInLauncher.launch(GoogleAuthManager.getSignInIntent(context))
+                },
+                onContinueOffline = {
+                    GoogleAuthManager.setOnboardingCompleted(context)
+                    isOnboardingOpen = false
+                }
+            )
+        }
+
+        launchUpdateInfo?.let { updateInfo ->
+            SimpleUpdateDialog(
+                releaseInfo = updateInfo,
+                onConfirmUpdate = {
+                    val url = updateInfo.downloadUrl ?: ""
+                    launchUpdateInfo = null
+                    OtaUpdateManager.startDownloadAndInstall(context, url, updateInfo.latestVersion)
+                },
+                onDismissToday = {
+                    OtaUpdateManager.dismissUpdateForToday(context)
+                    launchUpdateInfo = null
+                }
+            )
         }
     }
 }

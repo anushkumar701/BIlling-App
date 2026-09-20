@@ -98,7 +98,7 @@ object CloudBackupManager {
                     put("bills", billsArray)
                 }
 
-                val backupDir = File(context.cacheDir, "cloud_backups")
+                val backupDir = File(context.filesDir, "cloud_backups")
                 if (!backupDir.exists()) backupDir.mkdirs()
 
                 val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
@@ -114,6 +114,25 @@ object CloudBackupManager {
                 Result.failure(e)
             }
         }
+
+    fun getLatestBackupFile(context: Context): File? {
+        val backupDir = File(context.filesDir, "cloud_backups")
+        if (!backupDir.exists()) return null
+        return backupDir.listFiles { file -> file.isFile && file.extension.equals("json", ignoreCase = true) }
+            ?.maxByOrNull { it.lastModified() }
+    }
+
+    suspend fun autoRestoreLatestBackupIfAvailable(context: Context, database: AppDatabase): Result<RestoreResult>? {
+        val file = getLatestBackupFile(context) ?: return null
+        return try {
+            val jsonString = file.readText()
+            if (jsonString.isNotBlank()) {
+                restoreFromJson(jsonString, database)
+            } else null
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     /**
      * Saves / shares the backup JSON file to Google Drive (via Android native Drive integration),

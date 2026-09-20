@@ -1,5 +1,6 @@
 package com.fruitbilling.app.ui.menu
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,13 +48,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.fruitbilling.app.data.backup.GoogleAuthManager
+import com.fruitbilling.app.ui.common.PrivacyPolicyDialog
+import com.fruitbilling.app.ui.common.TermsOfServiceDialog
 import com.fruitbilling.app.util.DateUtils
 import androidx.compose.ui.unit.sp
 import com.fruitbilling.app.data.model.Product
@@ -68,6 +75,8 @@ fun MenuScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    var showTermsDialog by remember { mutableStateOf(false) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.initContextData(context)
@@ -81,7 +90,7 @@ fun MenuScreen(
     ) { result ->
         val userResult = GoogleAuthManager.handleSignInResult(context, result.data)
         userResult.onSuccess { user ->
-            viewModel.onGoogleSignInSuccess(user)
+            viewModel.onGoogleSignInSuccess(user, context)
         }.onFailure { error ->
             viewModel.onGoogleSignInFailure(error)
         }
@@ -203,13 +212,13 @@ fun MenuScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(10.dp),
+                                        .padding(12.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = uiState.googleUser?.displayName ?: "Google User",
+                                            text = uiState.googleUser?.displayName ?: "Google Account",
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                                         )
                                         Text(
@@ -220,15 +229,18 @@ fun MenuScreen(
                                     }
                                     OutlinedButton(
                                         onClick = { viewModel.onSignOut(context) },
-                                        shape = RoundedCornerShape(6.dp),
-                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.error
+                                        ),
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                                     ) {
-                                        Text("Sign Out", fontSize = 12.sp)
+                                        Text("Log Out", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
                         } else {
-                            OutlinedButton(
+                            Button(
                                 onClick = {
                                     signInLauncher.launch(GoogleAuthManager.getSignInIntent(context))
                                 },
@@ -241,7 +253,7 @@ fun MenuScreen(
                                 )
                             }
                             Text(
-                                text = "Sign in to securely backup your bill history and fruit catalog to Google Drive.",
+                                text = "Sign in to securely backup your bill history and fruit catalog to Google Drive, or auto-restore previous sales.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -289,24 +301,36 @@ fun MenuScreen(
                             }
                         }
 
-                        // Restore Action
-                        OutlinedButton(
-                            onClick = {
-                                restoreFileLauncher.launch("application/json")
-                            },
-                            enabled = !uiState.isRestoring,
+                        // Export / Share Backup and Restore Action
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            if (uiState.isRestoring) {
-                                androidx.compose.material3.CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Restoring…")
-                            } else {
-                                Text("🔄 Restore from Backup File (JSON)")
+                            OutlinedButton(
+                                onClick = { viewModel.onShareBackupFile(context) },
+                                enabled = !uiState.isBackingUp,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("📤 Share File", fontSize = 12.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    restoreFileLauncher.launch("application/json")
+                                },
+                                enabled = !uiState.isRestoring,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                if (uiState.isRestoring) {
+                                    androidx.compose.material3.CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Text("🔄 Restore", fontSize = 12.sp)
                             }
                         }
                     }
@@ -382,7 +406,7 @@ fun MenuScreen(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     )
@@ -390,32 +414,52 @@ fun MenuScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = "Info",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Fruit Billing v${com.fruitbilling.app.BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+
+                        Text(
+                            text = "feedback-midnightcompiler01@gmail.com",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            modifier = Modifier.clickable {
+                                try {
+                                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                        data = Uri.parse("mailto:feedback-midnightcompiler01@gmail.com")
+                                        putExtra(Intent.EXTRA_SUBJECT, "Fruit Billing App Feedback")
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "Send Feedback"))
+                                } catch (_: Exception) {}
+                            }
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
                             Text(
-                                text = "Fruit Billing App v${com.fruitbilling.app.BuildConfig.VERSION_NAME}",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                text = "Terms & Conditions",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                modifier = Modifier.clickable { showTermsDialog = true }
+                            )
+                            Text(
+                                text = "Privacy Policy",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                modifier = Modifier.clickable { showPrivacyDialog = true }
                             )
                         }
-                        Text(
-                            text = "100% Offline-First. Room database local storage.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                        Text(
-                            text = "All catalog edits preserve historical bill integrity.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline
-                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(24.dp))
@@ -492,6 +536,14 @@ fun MenuScreen(
                     }
                 }
             )
+        }
+
+        if (showTermsDialog) {
+            TermsOfServiceDialog(onDismiss = { showTermsDialog = false })
+        }
+
+        if (showPrivacyDialog) {
+            PrivacyPolicyDialog(onDismiss = { showPrivacyDialog = false })
         }
     }
 }

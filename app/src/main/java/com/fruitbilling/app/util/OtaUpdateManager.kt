@@ -35,8 +35,33 @@ data class AppReleaseInfo(
  */
 object OtaUpdateManager {
 
+    private const val PREFS_NAME = "ota_update_prefs"
+    private const val KEY_DISMISSED_DATE = "key_ota_dismissed_date"
+
     private const val GITHUB_RELEASES_API =
         "https://api.github.com/repos/anushkumar701/BIlling-App/releases/latest"
+
+    private fun getTodayDateString(): String {
+        return java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+    }
+
+    fun shouldCheckUpdateToday(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val dismissedDate = prefs.getString(KEY_DISMISSED_DATE, null)
+        return dismissedDate != getTodayDateString()
+    }
+
+    fun dismissUpdateForToday(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_DISMISSED_DATE, getTodayDateString()).apply()
+    }
+
+    suspend fun checkUpdateOnLaunchIfDue(context: Context): AppReleaseInfo? {
+        if (!shouldCheckUpdateToday(context)) return null
+        val result = checkForUpdates()
+        val info = result.getOrNull()
+        return if (info?.isUpdateAvailable == true) info else null
+    }
 
     suspend fun checkForUpdates(): Result<AppReleaseInfo> = withContext(Dispatchers.IO) {
         try {

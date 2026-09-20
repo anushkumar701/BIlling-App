@@ -65,10 +65,18 @@ class MenuViewModel(
         )
     }
 
-    fun onGoogleSignInSuccess(user: GoogleUserData) {
+    fun onGoogleSignInSuccess(user: GoogleUserData, context: Context? = null) {
         _uiState.value = _uiState.value.copy(googleUser = user)
         viewModelScope.launch {
             _snackbarMessages.emit("Connected: ${user.email}")
+            if (context != null) {
+                val restoreResult = CloudBackupManager.autoRestoreLatestBackupIfAvailable(context, database)
+                restoreResult?.onSuccess { stats ->
+                    if (stats.totalCount > 0) {
+                        _snackbarMessages.emit("Automatically restored ${stats.productsRestored} products & ${stats.billsRestored} bills!")
+                    }
+                }
+            }
         }
     }
 
@@ -91,17 +99,35 @@ class MenuViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isBackingUp = true)
             val result = CloudBackupManager.createBackupJson(context, database)
-            result.onSuccess { backupFile ->
+            result.onSuccess {
                 val updatedTime = CloudBackupManager.getLastBackupTime(context)
                 _uiState.value = _uiState.value.copy(
                     isBackingUp = false,
                     lastBackupTimestamp = updatedTime
                 )
-                CloudBackupManager.saveToGoogleDriveOrShare(context, backupFile)
-                _snackbarMessages.emit("Backup created! Choose Google Drive or save location.")
+                _snackbarMessages.emit("Backup created and saved successfully!")
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(isBackingUp = false)
                 _snackbarMessages.emit("Backup failed: ${error.message}")
+            }
+        }
+    }
+
+    fun onShareBackupFile(context: Context) {
+        val latestFile = CloudBackupManager.getLatestBackupFile(context)
+        if (latestFile != null && latestFile.exists()) {
+            CloudBackupManager.saveToGoogleDriveOrShare(context, latestFile)
+        } else {
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(isBackingUp = true)
+                val result = CloudBackupManager.createBackupJson(context, database)
+                result.onSuccess { backupFile ->
+                    _uiState.value = _uiState.value.copy(isBackingUp = false)
+                    CloudBackupManager.saveToGoogleDriveOrShare(context, backupFile)
+                }.onFailure { error ->
+                    _uiState.value = _uiState.value.copy(isBackingUp = false)
+                    _snackbarMessages.emit("Share failed: ${error.message}")
+                }
             }
         }
     }

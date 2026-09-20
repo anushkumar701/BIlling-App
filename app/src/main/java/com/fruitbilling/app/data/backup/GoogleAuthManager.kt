@@ -26,6 +26,17 @@ object GoogleAuthManager {
     private const val KEY_EMAIL = "google_user_email"
     private const val KEY_NAME = "google_user_display_name"
     private const val KEY_PHOTO = "google_user_photo_url"
+    private const val KEY_ONBOARDING_COMPLETED = "key_onboarding_completed"
+
+    fun isOnboardingCompleted(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
+    }
+
+    fun setOnboardingCompleted(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, true).apply()
+    }
 
     private fun getGoogleSignInClient(context: Context): GoogleSignInClient {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
