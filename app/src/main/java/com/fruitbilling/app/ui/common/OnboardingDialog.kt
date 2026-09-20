@@ -8,12 +8,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -51,7 +51,7 @@ fun OnboardingDialog(
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
     ) {
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp,
             modifier = Modifier.fillMaxWidth()
@@ -59,116 +59,124 @@ fun OnboardingDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // App Logo / Fruit icon
-                Text(text = "🍎", fontSize = 48.sp)
-
+                // Clean text header — no emoji/logo
                 Text(
-                    text = "Welcome to Fruit Billing",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    text = "Fruit Billing",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    ),
                     textAlign = TextAlign.Center
                 )
 
+                Spacer(modifier = Modifier.height(6.dp))
+
                 Text(
-                    text = "Fast, reliable & 100% offline-first POS for fruit stalls & market vendors.",
+                    text = "Fast, offline-first POS for fruit stalls & market vendors",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.outline,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
 
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Feature highlights
                 Card(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "⚡ Instant pricing for 500g, 1kg, and custom weights",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = "💾 All sales & products stored 100% locally on device",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = "☁️ Sign in with Google to auto-restore your data anytime",
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        FeatureRow("⚡", "Instant pricing for any weight")
+                        FeatureRow("💾", "All data stored safely on your device")
+                        FeatureRow("☁️", "Sign in to auto-restore your data")
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // Action 1: Sign In with Google
+                // Primary CTA: Google Sign In
                 Button(
                     onClick = onSignInWithGoogle,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
                 ) {
                     Text(
-                        text = "🔑 Sign in with Google Account",
+                        text = "Sign in with Google",
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
+                        fontSize = 15.sp
                     )
                 }
 
-                // Action 2: Continue Offline / Guest
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Secondary CTA: Offline / Guest
                 OutlinedButton(
                     onClick = onContinueOffline,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
                 ) {
                     Text(
-                        text = "🏪 Start Billing Offline (Guest)",
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 14.sp
+                        text = "Start Billing Offline",
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 15.sp
                     )
                 }
 
-                // Terms & Privacy Notice
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(top = 4.dp)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Terms & Privacy
+                Text(
+                    text = "By continuing, you agree to our",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "By continuing, you agree to our",
+                        text = "Terms & Conditions",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        modifier = Modifier.clickable { showTerms = true }
+                    )
+                    Text(
+                        text = "  •  ",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline
                     )
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Terms & Conditions",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
-                            ),
-                            modifier = Modifier.clickable { showTerms = true }
-                        )
-                        Text(
-                            text = "  •  ",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                        Text(
-                            text = "Privacy Policy",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
-                            ),
-                            modifier = Modifier.clickable { showPrivacy = true }
-                        )
-                    }
+                    Text(
+                        text = "Privacy Policy",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        modifier = Modifier.clickable { showPrivacy = true }
+                    )
                 }
             }
         }
@@ -179,5 +187,21 @@ fun OnboardingDialog(
     }
     if (showPrivacy) {
         PrivacyPolicyDialog(onDismiss = { showPrivacy = false })
+    }
+}
+
+@Composable
+private fun FeatureRow(icon: String, text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(text = icon, fontSize = 16.sp)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontWeight = FontWeight.Medium
+            )
+        )
     }
 }

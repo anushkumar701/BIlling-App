@@ -60,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.fruitbilling.app.data.backup.GoogleAuthManager
 import com.fruitbilling.app.ui.common.PrivacyPolicyDialog
+import com.fruitbilling.app.ui.common.SimpleUpdateDialog
 import com.fruitbilling.app.ui.common.TermsOfServiceDialog
 import com.fruitbilling.app.util.DateUtils
 import androidx.compose.ui.unit.sp
@@ -493,48 +494,12 @@ fun MenuScreen(
             )
         }
 
-        // OTA Update Available Dialog
+        // OTA Update Available Dialog — clean & minimal
         if (uiState.showUpdateDialog && uiState.updateReleaseInfo != null) {
-            val release = uiState.updateReleaseInfo!!
-            AlertDialog(
-                onDismissRequest = viewModel::onDismissUpdateDialog,
-                title = {
-                    Text(
-                        text = "🚀 Update Available: ${release.latestVersion}",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = release.releaseTitle,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                        )
-                        Text(
-                            text = release.releaseNotes,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Current: v${release.currentVersion}  →  Latest: ${release.latestVersion}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = { viewModel.onInstallUpdate(context) },
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Download & Install")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = viewModel::onDismissUpdateDialog) {
-                        Text("Later")
-                    }
-                }
+            SimpleUpdateDialog(
+                releaseInfo = uiState.updateReleaseInfo!!,
+                onConfirmUpdate = { viewModel.onInstallUpdate(context) },
+                onDismissToday = viewModel::onDismissUpdateDialog
             )
         }
 
