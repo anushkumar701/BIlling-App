@@ -69,11 +69,12 @@ class MenuViewModel(
         _uiState.value = _uiState.value.copy(googleUser = user)
         viewModelScope.launch {
             _snackbarMessages.emit("Connected: ${user.email}")
-            if (context != null) {
-                val restoreResult = CloudBackupManager.autoRestoreLatestBackupIfAvailable(context, database)
-                restoreResult?.onSuccess { stats ->
+            val email = user.email
+            if (context != null && !email.isNullOrBlank()) {
+                val restoreResult = CloudBackupManager.restoreFromCloud(context, database, email)
+                restoreResult.onSuccess { stats ->
                     if (stats.totalCount > 0) {
-                        _snackbarMessages.emit("Automatically restored ${stats.productsRestored} products & ${stats.billsRestored} bills!")
+                        _snackbarMessages.emit("Automatically restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills from cloud!")
                     }
                 }
             }
@@ -96,19 +97,49 @@ class MenuViewModel(
     }
 
     fun onBackupToDrive(context: Context) {
+        val email = _uiState.value.googleUser?.email ?: GoogleAuthManager.getLastSignedInAccount(context)?.email
+        if (email.isNullOrBlank()) {
+            viewModelScope.launch {
+                _snackbarMessages.emit("Please sign in with Google to backup to cloud.")
+            }
+            return
+        }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isBackingUp = true)
-            val result = CloudBackupManager.createBackupJson(context, database)
+            val result = CloudBackupManager.backupToCloud(context, database, email)
+            _uiState.value = _uiState.value.copy(isBackingUp = false)
             result.onSuccess {
                 val updatedTime = CloudBackupManager.getLastBackupTime(context)
-                _uiState.value = _uiState.value.copy(
-                    isBackingUp = false,
-                    lastBackupTimestamp = updatedTime
-                )
-                _snackbarMessages.emit("Backup saved to device (Downloads & Documents)!")
+                _uiState.value = _uiState.value.copy(lastBackupTimestamp = updatedTime)
+                _snackbarMessages.emit("☁️ Backup synced to Google Drive successfully!")
             }.onFailure { error ->
-                _uiState.value = _uiState.value.copy(isBackingUp = false)
-                _snackbarMessages.emit("Backup failed: ${error.message}")
+                _snackbarMessages.emit("Cloud backup failed: ${error.message}")
+            }
+        }
+    }
+
+    fun onRestoreFromCloud(context: Context) {
+        val email = _uiState.value.googleUser?.email ?: GoogleAuthManager.getLastSignedInAccount(context)?.email
+        if (email.isNullOrBlank()) {
+            viewModelScope.launch {
+                _snackbarMessages.emit("Please sign in with Google to restore from cloud.")
+            }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isRestoring = true)
+            val result = CloudBackupManager.restoreFromCloud(context, database, email)
+            _uiState.value = _uiState.value.copy(isRestoring = false)
+            result.onSuccess { stats ->
+                val msg = when {
+                    stats.totalCount == 0 -> "Cloud data is already up-to-date."
+                    stats.billsRestored == 0 -> "Restored ${stats.productsRestored} fruits from Google Drive!"
+                    stats.productsRestored == 0 -> "Restored ${stats.billsRestored} bills from Google Drive!"
+                    else -> "Restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills from Google Drive!"
+                }
+                _snackbarMessages.emit("✅ $msg")
+            }.onFailure { error ->
+                _snackbarMessages.emit("Restore: ${error.message}")
             }
         }
     }
@@ -129,26 +160,6 @@ class MenuViewModel(
                     _uiState.value = _uiState.value.copy(isBackingUp = false)
                     _snackbarMessages.emit("Share failed: ${error.message}")
                 }
-            }
-        }
-    }
-
-    fun onAutoRestore(context: Context, onNoLocalFound: () -> Unit) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isRestoring = true)
-            val result = CloudBackupManager.autoRestoreLatestBackupIfAvailable(context, database)
-            _uiState.value = _uiState.value.copy(isRestoring = false)
-            if (result != null && result.isSuccess) {
-                val stats = result.getOrNull()
-                val msg = when {
-                    stats == null || stats.totalCount == 0 -> "Backup data is already up-to-date."
-                    stats.billsRestored == 0 -> "Restored ${stats.productsRestored} fruits successfully!"
-                    stats.productsRestored == 0 -> "Restored ${stats.billsRestored} bills successfully!"
-                    else -> "Restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills successfully!"
-                }
-                _snackbarMessages.emit(msg)
-            } else {
-                onNoLocalFound()
             }
         }
     }

@@ -42,6 +42,7 @@ object GoogleAuthManager {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestProfile()
+            .requestScopes(com.google.android.gms.common.api.Scope("https://www.googleapis.com/auth/drive.appdata"))
             .build()
         return GoogleSignIn.getClient(context, gso)
     }

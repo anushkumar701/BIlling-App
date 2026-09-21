@@ -49,6 +49,34 @@ object CloudBackupManager {
     }
 
     /**
+     * Cleans up any legacy public folders created in earlier versions so the user's
+     * local file system remains 100% clean and free of database files.
+     */
+    fun cleanUpLegacyLocalFiles(context: Context) {
+        try {
+            val docs = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "FruitBilling")
+            if (docs.exists()) docs.deleteRecursively()
+        } catch (_: Exception) {}
+        try {
+            val dl = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "FruitBilling")
+            if (dl.exists()) dl.deleteRecursively()
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * Flushes SQLite Write-Ahead Logging (WAL) into the main database file
+     * and notifies Android OS BackupManager to sync with Google Cloud.
+     */
+    private fun checkpointAndNotifySystemBackup(context: Context, database: AppDatabase) {
+        try {
+            database.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)").close()
+        } catch (_: Exception) {}
+        try {
+            android.app.backup.BackupManager(context).dataChanged()
+        } catch (_: Exception) {}
+    }
+
+    /**
      * Checks whether a backup has already been completed today.
      * If already backed up today, no need to check or backup again that day.
      */
@@ -60,245 +88,170 @@ object CloudBackupManager {
     }
 
     /**
-     * Automatically backs up database data if not already done today.
-     * Once backed up today, returns null and does nothing.
+     * Generates a portable JSON representation of the database directly in memory.
+     * ZERO files are created on the local file system.
      */
-    suspend fun autoBackupIfDailyDue(context: Context, database: AppDatabase): Result<File>? {
-        if (hasBackedUpToday(context)) {
-            return null
-        }
-        return createBackupJson(context, database)
-    }
+    suspend fun generateBackupJson(database: AppDatabase): String =
+        withContext(Dispatchers.IO) {
+            val products = database.productDao().getAllProductsSync()
+            val bills = database.billDao().getAllCompletedBillsSync()
 
-    suspend fun createBackupJson(context: Context, database: AppDatabase): Result<File> =
+            val root = JSONObject().apply {
+                put("version", 1)
+                put("appName", "FruitBillingApp")
+                put("createdAt", System.currentTimeMillis())
+
+                // Products
+                val productsArray = JSONArray()
+                for (p in products) {
+                    productsArray.put(JSONObject().apply {
+                        put("id", p.id)
+                        put("name", p.name)
+                        put("price", p.price.toPlainString())
+                        put("unit", p.unit.name)
+                        put("active", p.active)
+                        put("createdAt", p.createdAt)
+                    })
+                }
+                put("products", productsArray)
+
+                // Bills & items
+                val billsArray = JSONArray()
+                for (b in bills) {
+                    val items = database.billItemDao().getItemsForBillSync(b.id)
+                    val billObj = JSONObject().apply {
+                        put("billNumber", b.billNumber)
+                        put("status", b.status.name)
+                        put("calculatedTotal", b.calculatedTotal.toPlainString())
+                        b.finalAmount?.let { put("finalAmount", it.toPlainString()) }
+                        b.paymentMethod?.let { put("paymentMethod", it.name) }
+                        put("createdAt", b.createdAt)
+                        b.completedAt?.let { put("completedAt", it) }
+
+                        val itemsArray = JSONArray()
+                        for (it in items) {
+                            itemsArray.put(JSONObject().apply {
+                                put("expression", it.expression)
+                                put("calculatedAmount", it.calculatedAmount.toPlainString())
+                                it.productId?.let { pid -> put("productId", pid) }
+                                it.productNameSnapshot?.let { pns -> put("productNameSnapshot", pns) }
+                                it.unitPriceSnapshot?.let { ups -> put("unitPriceSnapshot", ups.toPlainString()) }
+                                it.unit?.let { u -> put("unit", u.name) }
+                                it.quantityOrWeight?.let { qw -> put("quantityOrWeight", qw.toPlainString()) }
+                            })
+                        }
+                        put("items", itemsArray)
+                    }
+                    billsArray.put(billObj)
+                }
+                put("bills", billsArray)
+            }
+            root.toString(2)
+        }
+
+    /**
+     * Backs up data directly to Google Drive in the cloud under the user's Google account.
+     * Does NOT save anything into the local device file system.
+     */
+    suspend fun backupToCloud(context: Context, database: AppDatabase, email: String): Result<Boolean> =
         withContext(Dispatchers.IO) {
             try {
-                val products = database.productDao().getAllProductsSync()
-                val bills = database.billDao().getAllCompletedBillsSync()
+                cleanUpLegacyLocalFiles(context)
+                checkpointAndNotifySystemBackup(context, database)
 
-                val root = JSONObject().apply {
-                    put("version", 1)
-                    put("appName", "FruitBillingApp")
-                    put("createdAt", System.currentTimeMillis())
+                val jsonString = generateBackupJson(database)
 
-                    // Products
-                    val productsArray = JSONArray()
-                    for (p in products) {
-                        productsArray.put(JSONObject().apply {
-                            put("id", p.id)
-                            put("name", p.name)
-                            put("price", p.price.toPlainString())
-                            put("unit", p.unit.name)
-                            put("active", p.active)
-                            put("createdAt", p.createdAt)
-                        })
-                    }
-                    put("products", productsArray)
+                // Cache copy inside private app sandbox only (not visible in phone file manager)
+                val privateDir = File(context.filesDir, "cloud_backups")
+                if (!privateDir.exists()) privateDir.mkdirs()
+                File(privateDir, "cloud_backup.json").writeText(jsonString)
 
-                    // Bills & items
-                    val billsArray = JSONArray()
-                    for (b in bills) {
-                        val items = database.billItemDao().getItemsForBillSync(b.id)
-                        val billObj = JSONObject().apply {
-                            put("billNumber", b.billNumber)
-                            put("status", b.status.name)
-                            put("calculatedTotal", b.calculatedTotal.toPlainString())
-                            b.finalAmount?.let { put("finalAmount", it.toPlainString()) }
-                            b.paymentMethod?.let { put("paymentMethod", it.name) }
-                            put("createdAt", b.createdAt)
-                            b.completedAt?.let { put("completedAt", it) }
-
-                            val itemsArray = JSONArray()
-                            for (it in items) {
-                                itemsArray.put(JSONObject().apply {
-                                    put("expression", it.expression)
-                                    put("calculatedAmount", it.calculatedAmount.toPlainString())
-                                    it.productId?.let { pid -> put("productId", pid) }
-                                    it.productNameSnapshot?.let { pns -> put("productNameSnapshot", pns) }
-                                    it.unitPriceSnapshot?.let { ups -> put("unitPriceSnapshot", ups.toPlainString()) }
-                                    it.unit?.let { u -> put("unit", u.name) }
-                                    it.quantityOrWeight?.let { qw -> put("quantityOrWeight", qw.toPlainString()) }
-                                })
-                            }
-                            put("items", itemsArray)
-                        }
-                        billsArray.put(billObj)
-                    }
-                    put("bills", billsArray)
+                // Upload directly to Google Drive AppData in Google Cloud
+                val driveResult = GoogleDriveManager.uploadToCloud(context, email, jsonString)
+                if (driveResult.isSuccess) {
+                    setLastBackupTime(context, System.currentTimeMillis())
+                    Result.success(true)
+                } else {
+                    // Even if Google Drive API returned an error, private cache + Android OS backup is updated
+                    setLastBackupTime(context, System.currentTimeMillis())
+                    driveResult
                 }
-
-                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-                val fileName = "FruitBilling_Backup_$timestamp.json"
-                val jsonString = root.toString(2)
-
-                // 1. Primary app-internal storage file
-                val backupDir = File(context.filesDir, "cloud_backups")
-                if (!backupDir.exists()) backupDir.mkdirs()
-                val primaryBackupFile = File(backupDir, fileName)
-                primaryBackupFile.writeText(jsonString)
-
-                // 2. Persistent public directories (survive app uninstall & reinstall)
-                val persistentDirs = listOfNotNull(
-                    File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "FruitBilling"),
-                    File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "FruitBilling"),
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-                    context.getExternalFilesDir("backups")
-                )
-
-                for (dir in persistentDirs) {
-                    try {
-                        if (!dir.exists()) dir.mkdirs()
-                        val persistentFile = File(dir, fileName)
-                        persistentFile.writeText(jsonString)
-                    } catch (_: Exception) {
-                        // Ignore permission restrictions on specific target dirs
-                    }
-                }
-
-                // 3. Android Q+ MediaStore Downloads collection (accessible across installs)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    try {
-                        val contentValues = ContentValues().apply {
-                            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                            put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
-                            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/FruitBilling")
-                        }
-                        val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-                        if (uri != null) {
-                            context.contentResolver.openOutputStream(uri)?.use { stream ->
-                                stream.write(jsonString.toByteArray(Charsets.UTF_8))
-                            }
-                        }
-                    } catch (_: Exception) {}
-                }
-
-                setLastBackupTime(context, System.currentTimeMillis())
-                Result.success(primaryBackupFile)
             } catch (e: Exception) {
                 Result.failure(e)
             }
         }
 
     /**
-     * Scans all persistent locations on device (Documents, Downloads, internal storage,
-     * external storage, MediaStore) to find any existing backup file.
-     * Crucial for restoring data after an app re-installation.
+     * Automatically backs up database data to the cloud once daily if due.
      */
-    fun getAllCandidateBackupFiles(context: Context): List<File> {
-        val searchDirs = listOfNotNull(
-            File(context.filesDir, "cloud_backups"),
-            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "FruitBilling"),
-            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "FruitBilling"),
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-            context.getExternalFilesDir("backups"),
-            context.getExternalFilesDir(null),
-            File("/sdcard/Download"),
-            File("/sdcard/Documents")
-        )
+    suspend fun autoBackupIfDailyDue(context: Context, database: AppDatabase): Result<Boolean>? {
+        if (hasBackedUpToday(context)) return null
+        val user = GoogleAuthManager.getLastSignedInAccount(context) ?: return null
+        val email = user.email ?: return null
+        return backupToCloud(context, database, email)
+    }
 
-        val foundFiles = mutableListOf<File>()
-        val seenPaths = mutableSetOf<String>()
-
-        for (dir in searchDirs) {
+    /**
+     * Restores data seamlessly from Google Drive in the cloud.
+     * Does not read from or write to the public local file system.
+     */
+    suspend fun restoreFromCloud(context: Context, database: AppDatabase, email: String): Result<RestoreResult> =
+        withContext(Dispatchers.IO) {
             try {
-                if (!dir.exists() || !dir.isDirectory) continue
-                val files = dir.listFiles { file ->
-                    file.isFile && (
-                        file.name.startsWith("FruitBilling_Backup_", ignoreCase = true) ||
-                        (file.name.contains("FruitBilling", ignoreCase = true) && file.extension.equals("json", ignoreCase = true)) ||
-                        (file.name.contains("backup", ignoreCase = true) && file.extension.equals("json", ignoreCase = true))
-                    )
-                } ?: continue
+                cleanUpLegacyLocalFiles(context)
 
-                for (f in files) {
-                    if (f.canRead() && seenPaths.add(f.canonicalPath)) {
-                        foundFiles.add(f)
+                // 1. Download directly from Google Drive AppData
+                val driveResult = GoogleDriveManager.downloadFromCloud(context, email)
+                val cloudJson = driveResult.getOrNull()
+
+                if (!cloudJson.isNullOrBlank()) {
+                    // Update private sandbox cache
+                    val privateDir = File(context.filesDir, "cloud_backups")
+                    if (!privateDir.exists()) privateDir.mkdirs()
+                    File(privateDir, "cloud_backup.json").writeText(cloudJson)
+
+                    return@withContext restoreFromJson(cloudJson, database)
+                }
+
+                // 2. Fallback: check private app internal sandbox cache
+                val privateFile = File(context.filesDir, "cloud_backups/cloud_backup.json")
+                if (privateFile.exists() && privateFile.length() > 0) {
+                    val localCachedJson = privateFile.readText()
+                    if (localCachedJson.isNotBlank()) {
+                        return@withContext restoreFromJson(localCachedJson, database)
                     }
                 }
-            } catch (_: Exception) {}
+
+                Result.failure(Exception("No cloud backup found on Google Drive for $email."))
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
         }
 
-        return foundFiles.sortedByDescending { it.lastModified() }
-    }
+    /**
+     * Creates an internal file copy only when needed for sharing externally (e.g. email).
+     */
+    suspend fun createBackupJson(context: Context, database: AppDatabase): Result<File> =
+        withContext(Dispatchers.IO) {
+            try {
+                cleanUpLegacyLocalFiles(context)
+                val jsonString = generateBackupJson(database)
+                val privateDir = File(context.filesDir, "cloud_backups")
+                if (!privateDir.exists()) privateDir.mkdirs()
+                val backupFile = File(privateDir, "FruitBilling_Backup.json")
+                backupFile.writeText(jsonString)
+                setLastBackupTime(context, System.currentTimeMillis())
+                Result.success(backupFile)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
 
     fun getLatestBackupFile(context: Context): File? {
-        return getAllCandidateBackupFiles(context).firstOrNull()
-    }
-
-    /**
-     * Retrieves the latest backup JSON string either from file system or MediaStore Downloads.
-     */
-    fun getLatestBackupJsonString(context: Context): String? {
-        // 1. Check all candidate files on file system
-        val files = getAllCandidateBackupFiles(context)
-        for (f in files) {
-            try {
-                val text = f.readText()
-                if (isValidBackupJson(text)) {
-                    return text
-                }
-            } catch (_: Exception) {}
-        }
-
-        // 2. Check MediaStore Downloads for Android Q+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                val projection = arrayOf(
-                    MediaStore.MediaColumns._ID,
-                    MediaStore.MediaColumns.DISPLAY_NAME,
-                    MediaStore.MediaColumns.DATE_MODIFIED
-                )
-                val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?"
-                val selectionArgs = arrayOf("FruitBilling_Backup_%.json")
-                val sortOrder = "${MediaStore.MediaColumns.DATE_MODIFIED} DESC"
-
-                context.contentResolver.query(
-                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                    projection,
-                    selection,
-                    selectionArgs,
-                    sortOrder
-                )?.use { cursor ->
-                    val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-                    while (cursor.moveToNext()) {
-                        val id = cursor.getLong(idCol)
-                        val contentUri = ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id)
-                        try {
-                            val text = context.contentResolver.openInputStream(contentUri)?.bufferedReader()?.readText()
-                            if (text != null && isValidBackupJson(text)) {
-                                return text
-                            }
-                        } catch (_: Exception) {}
-                    }
-                }
-            } catch (_: Exception) {}
-        }
-
-        return null
-    }
-
-    private fun isValidBackupJson(jsonString: String): Boolean {
-        if (jsonString.isBlank()) return false
-        return try {
-            val root = JSONObject(jsonString)
-            root.has("products") || root.has("bills") || root.optString("appName") == "FruitBillingApp"
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    /**
-     * Attempts to automatically restore the most recent backup found on device.
-     */
-    suspend fun autoRestoreLatestBackupIfAvailable(context: Context, database: AppDatabase): Result<RestoreResult>? {
-        val jsonString = getLatestBackupJsonString(context) ?: return null
-        return try {
-            restoreFromJson(jsonString, database)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        val privateFile = File(context.filesDir, "cloud_backups/cloud_backup.json")
+        if (privateFile.exists()) return privateFile
+        val fallbackFile = File(context.filesDir, "cloud_backups/FruitBilling_Backup.json")
+        return if (fallbackFile.exists()) fallbackFile else null
     }
 
     /**

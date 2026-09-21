@@ -96,26 +96,20 @@ fun AppNavigation(
     val coroutineScope = rememberCoroutineScope()
     var isOnboardingOpen by remember { mutableStateOf(!GoogleAuthManager.isOnboardingCompleted(context)) }
     var launchUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
-    var showGmailRestorePrompt by remember { mutableStateOf<String?>(null) }
-
-    val gmailFilePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        showGmailRestorePrompt = null
-        if (uri != null) {
-            coroutineScope.launch(Dispatchers.IO) {
-                val result = CloudBackupManager.restoreFromUri(context, uri, app.database)
-                withContext(Dispatchers.Main) {
-                    result.onSuccess { stats ->
-                        val msg = when {
-                            stats.totalCount == 0 -> "Backup data is already up-to-date."
-                            stats.billsRestored == 0 -> "Restored ${stats.productsRestored} fruits from backup!"
-                            stats.productsRestored == 0 -> "Restored ${stats.billsRestored} bills from backup!"
-                            else -> "Restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills from backup!"
-                        }
-                        android.widget.Toast.makeText(context, "✅ $msg", android.widget.Toast.LENGTH_LONG).show()
-                    }.onFailure { error ->
-                        android.widget.Toast.makeText(context, "Could not restore: ${error.message}", android.widget.Toast.LENGTH_SHORT).show()
+    val driveConsentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        val email = GoogleAuthManager.getLastSignedInAccount(context)?.email ?: return@rememberLauncherForActivityResult
+        coroutineScope.launch(Dispatchers.IO) {
+            val result = CloudBackupManager.restoreFromCloud(context, app.database, email)
+            withContext(Dispatchers.Main) {
+                result.onSuccess { stats ->
+                    if (stats.totalCount > 0) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "✅ Restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills from Google Drive!",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
             }
@@ -129,23 +123,29 @@ fun AppNavigation(
         userResult.onSuccess { user ->
             GoogleAuthManager.setOnboardingCompleted(context)
             isOnboardingOpen = false
-            coroutineScope.launch(Dispatchers.IO) {
-                val restoreResult = CloudBackupManager.autoRestoreLatestBackupIfAvailable(context, app.database)
-                withContext(Dispatchers.Main) {
-                    if (restoreResult != null && restoreResult.isSuccess) {
-                        val stats = restoreResult.getOrNull()
-                        if (stats != null && stats.totalCount > 0) {
-                            android.widget.Toast.makeText(
-                                context,
-                                "✅ Welcome back, ${user.displayName ?: user.email}! Restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills.",
-                                android.widget.Toast.LENGTH_LONG
-                            ).show()
-                        } else {
-                            android.widget.Toast.makeText(context, "✅ Signed in as ${user.email}", android.widget.Toast.LENGTH_SHORT).show()
+            val email = user.email ?: ""
+            if (email.isNotBlank()) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    val restoreResult = CloudBackupManager.restoreFromCloud(context, app.database, email)
+                    withContext(Dispatchers.Main) {
+                        restoreResult.onSuccess { stats ->
+                            if (stats.totalCount > 0) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "✅ Welcome back, ${user.displayName ?: email}! Restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills from cloud.",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                android.widget.Toast.makeText(context, "✅ Signed in as $email", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }.onFailure {
+                            val consentIntent = com.fruitbilling.app.data.backup.GoogleDriveManager.pendingAuthIntent
+                            if (consentIntent != null) {
+                                driveConsentLauncher.launch(consentIntent)
+                            } else {
+                                android.widget.Toast.makeText(context, "✅ Signed in as $email", android.widget.Toast.LENGTH_SHORT).show()
+                            }
                         }
-                    } else {
-                        // No local backup found on device; offer user to pick backup from Gmail / Drive
-                        showGmailRestorePrompt = user.email
                     }
                 }
             }
@@ -283,53 +283,6 @@ fun AppNavigation(
                 onDismissToday = {
                     OtaUpdateManager.dismissUpdateForToday(context)
                     launchUpdateInfo = null
-                }
-            )
-        }
-
-        if (showGmailRestorePrompt != null) {
-            val email = showGmailRestorePrompt ?: ""
-            AlertDialog(
-                onDismissRequest = { showGmailRestorePrompt = null },
-                icon = {
-                    Text("☁️", fontSize = 28.sp)
-                },
-                title = {
-                    Text(
-                        text = "Restore Data from Gmail",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "Signed in as $email.",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                        )
-                        Text(
-                            text = "No backup was detected in local device storage. If your backup was saved to Google Drive or sent to Gmail, tap below to select the file, or open Gmail and tap the backup attachment.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            gmailFilePickerLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
-                        },
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("📥 Select Backup File")
-                    }
-                },
-                dismissButton = {
-                    OutlinedButton(
-                        onClick = { showGmailRestorePrompt = null },
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Start Fresh")
-                    }
                 }
             )
         }

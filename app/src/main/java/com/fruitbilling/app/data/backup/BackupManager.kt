@@ -32,6 +32,9 @@ object BackupManager {
                     val success = createBackupSnapshot(context, database)
                     if (success) {
                         prefs.edit().putLong(KEY_LAST_BACKUP, now).apply()
+                        try {
+                            android.app.backup.BackupManager(context).dataChanged()
+                        } catch (_: Exception) {}
                         Log.d(TAG, "Daily backup snapshot completed successfully at $now")
                     }
                 }

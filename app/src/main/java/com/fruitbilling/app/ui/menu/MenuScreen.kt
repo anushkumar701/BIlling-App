@@ -288,14 +288,14 @@ fun MenuScreen(
                                         color = MaterialTheme.colorScheme.onPrimary
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Saving…")
+                                    Text("Syncing…")
                                 } else {
-                                    Text("💾 Backup Now")
+                                    Text("☁️ Backup Now")
                                 }
                             }
                         }
 
-                        // Export / Share Backup and Restore Action
+                        // Export / Share Backup and Cloud Restore Action
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -311,9 +311,7 @@ fun MenuScreen(
 
                             OutlinedButton(
                                 onClick = {
-                                    viewModel.onAutoRestore(context) {
-                                        restoreFileLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
-                                    }
+                                    viewModel.onRestoreFromCloud(context)
                                 },
                                 enabled = !uiState.isRestoring,
                                 modifier = Modifier.weight(1f),
@@ -326,7 +324,7 @@ fun MenuScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                 }
-                                Text("🔄 Restore", fontSize = 12.sp)
+                                Text("🔄 Restore Cloud", fontSize = 12.sp)
                             }
                         }
                     }
