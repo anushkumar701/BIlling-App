@@ -73,7 +73,7 @@ object GoogleDriveManager {
                         put("updatedAt", JSONObject().put("integerValue", System.currentTimeMillis().toString()))
                         put("totalProducts", JSONObject().put("integerValue", productCount.toString()))
                         put("totalBills", JSONObject().put("integerValue", billCount.toString()))
-                        put("clientVersion", JSONObject().put("stringValue", "1.0.3"))
+                        put("clientVersion", JSONObject().put("stringValue", "1.0.4"))
                         put("deviceModel", JSONObject().put("stringValue", "${Build.MANUFACTURER} ${Build.MODEL}"))
                     }
                     put("fields", fields)
