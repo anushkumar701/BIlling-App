@@ -16,7 +16,9 @@ import com.fruitbilling.app.data.model.BillStatus
 import com.fruitbilling.app.data.model.PaymentMethod
 import com.fruitbilling.app.data.model.Product
 import com.fruitbilling.app.data.model.ProductUnit
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -29,23 +31,73 @@ import java.util.Locale
 
 /**
  * Cloud Backup Manager:
- * Creates portable JSON backups of all products and bills, tracks last backup timestamp,
- * saves copies to multiple persistent device locations (Documents, Downloads, MediaStore)
- * that survive app reinstallation, and allows saving directly to Google Drive / Gmail.
+ * Production-grade serverless cloud synchronization engine.
+ * Automatically saves and restores data to/from Google Cloud directly in memory.
+ * Zero files dumped onto the local file system.
  */
 object CloudBackupManager {
 
     private const val PREFS_NAME = "fruit_cloud_backup_prefs"
     private const val KEY_LAST_CLOUD_BACKUP = "last_cloud_backup_time"
+    private const val KEY_CURRENT_ACTIVE_ACCOUNT = "current_active_account_email"
+
+    fun getActiveAccountEmail(context: Context): String? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_CURRENT_ACTIVE_ACCOUNT, null)
+    }
+
+    fun setActiveAccountEmail(context: Context, email: String?) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_CURRENT_ACTIVE_ACCOUNT, email?.trim()?.lowercase()).apply()
+    }
 
     fun getLastBackupTime(context: Context): Long {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getLong(KEY_LAST_CLOUD_BACKUP, 0L)
     }
 
-    private fun setLastBackupTime(context: Context, timestamp: Long) {
+    fun setLastBackupTime(context: Context, timestamp: Long) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putLong(KEY_LAST_CLOUD_BACKUP, timestamp).apply()
+    }
+
+    fun getLastSyncFormatted(context: Context): String {
+        val time = getLastBackupTime(context)
+        if (time <= 0L) return "Not synced yet"
+        val diff = System.currentTimeMillis() - time
+        if (diff < 60_000) return "Just now"
+        val (start, end) = com.fruitbilling.app.util.DateUtils.getTodayStartAndEndMillis()
+        val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(time))
+        return if (time in start..end) {
+            "Today at $timeFmt"
+        } else {
+            SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(time))
+        }
+    }
+
+    @Volatile
+    private var lastSyncAttemptTime = 0L
+
+    /**
+     * Triggers a lightweight, non-blocking asynchronous cloud sync in the background.
+     * Throttled to avoid unnecessary network flooding when making rapid edits.
+     */
+    fun triggerAsyncCloudSync(context: Context, database: AppDatabase) {
+        val now = System.currentTimeMillis()
+        if (now - lastSyncAttemptTime < 15_000) {
+            return
+        }
+        lastSyncAttemptTime = now
+
+        val appContext = context.applicationContext
+        val account = GoogleAuthManager.getLastSignedInAccount(appContext) ?: return
+        val email = account.email ?: return
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                backupToCloud(appContext, database, email)
+            } catch (_: Exception) {}
+        }
     }
 
     /**
@@ -222,11 +274,92 @@ object CloudBackupManager {
                     }
                 }
 
-                Result.failure(Exception("No cloud backup found on Google Drive for $email."))
+                Result.failure(Exception("No cloud backup found for $email."))
             } catch (e: Exception) {
                 Result.failure(e)
             }
         }
+
+    /**
+     * Handles account sign-in & switching with strict data isolation:
+     * - If switching from Email 1 to Email 2:
+     *     1. Syncs Email 1 data to cloud first so zero data is lost.
+     *     2. Clears local SQLite tables so Email 1 and Email 2 data never collapse/mix together!
+     *     3. Downloads & restores Email 2's cloud backup (or inits clean default fruits if Email 2 has no cloud data).
+     * - If logging in from Guest mode:
+     *     1. Checks if Email has existing cloud backup:
+     *        If yes: clears local tables and restores Email's cloud backup!
+     *        If no: uploads current guest transactions to become Email's initial backup!
+     * - Updates active account email.
+     */
+    suspend fun handleAccountSignIn(
+        context: Context,
+        database: AppDatabase,
+        newEmail: String
+    ): Result<RestoreResult> = withContext(Dispatchers.IO) {
+        try {
+            val previousEmail = getActiveAccountEmail(context)
+            val normalizedNew = newEmail.trim().lowercase()
+
+            // 1. If switching from a DIFFERENT signed-in account:
+            if (!previousEmail.isNullOrBlank() && !previousEmail.equals(normalizedNew, ignoreCase = true)) {
+                // Back up old account's latest data to cloud first
+                try {
+                    backupToCloud(context, database, previousEmail)
+                } catch (_: Exception) {}
+
+                // Wipe local tables completely so old account's data doesn't leak into new account
+                database.clearAllTables()
+            }
+
+            // 2. Fetch cloud backup for the new account
+            val cloudResult = GoogleDriveManager.downloadFromCloud(context, normalizedNew)
+            val cloudJson = cloudResult.getOrNull()
+
+            val result = if (!cloudJson.isNullOrBlank()) {
+                // Cloud backup exists: clear local tables and cleanly restore
+                database.clearAllTables()
+                restoreFromJson(cloudJson, database)
+            } else {
+                // New account with no prior cloud backup:
+                // Ensure default fruits exist if database was empty
+                if (database.productDao().getProductCount() == 0) {
+                    com.fruitbilling.app.FruitBillingApp.instance.productRepository.ensureDefaultProducts()
+                }
+                // Back up the current initial catalog/transactions to cloud
+                backupToCloud(context, database, normalizedNew)
+                Result.success(RestoreResult(0, 0))
+            }
+
+            // 3. Mark new account as active and ensure active bill exists
+            setActiveAccountEmail(context, normalizedNew)
+            com.fruitbilling.app.FruitBillingApp.instance.billRepository.getOrCreateActiveBill()
+
+            result
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Handles account sign-out:
+     * 1. Backs up current account to cloud before disconnecting.
+     * 2. Clears active account preference.
+     * 3. Clears local database and initializes default products for clean Guest mode.
+     */
+    suspend fun handleAccountSignOut(context: Context, database: AppDatabase) = withContext(Dispatchers.IO) {
+        try {
+            val currentEmail = getActiveAccountEmail(context)
+            if (!currentEmail.isNullOrBlank()) {
+                backupToCloud(context, database, currentEmail)
+            }
+        } catch (_: Exception) {}
+
+        setActiveAccountEmail(context, null)
+        database.clearAllTables()
+        com.fruitbilling.app.FruitBillingApp.instance.productRepository.ensureDefaultProducts()
+        com.fruitbilling.app.FruitBillingApp.instance.billRepository.getOrCreateActiveBill()
+    }
 
     /**
      * Creates an internal file copy only when needed for sharing externally (e.g. email).

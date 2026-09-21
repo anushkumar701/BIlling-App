@@ -576,6 +576,14 @@ class BillingViewModel(
                 val payLabel = chosenMethod?.label ?: "Saved"
                 _snackbarMessages.emit("Bill ${completedBill.formattedBillNumber} saved ($payLabel)")
 
+                // Trigger background cloud sync automatically
+                try {
+                    com.fruitbilling.app.data.backup.CloudBackupManager.triggerAsyncCloudSync(
+                        context = com.fruitbilling.app.FruitBillingApp.instance,
+                        database = com.fruitbilling.app.FruitBillingApp.instance.database
+                    )
+                } catch (_: Exception) {}
+
                 // Open clean next bill automatically (§10 & §12)
                 val nextBill = billRepository.getOrCreateActiveBill()
                 clearInputsForNewBill()

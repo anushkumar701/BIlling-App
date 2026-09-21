@@ -287,43 +287,6 @@ fun SaveBillDialog(
                     }
                 )
 
-                // Quick Rounding helpers
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val roundDownTen = calculatedTotal.divide(BigDecimal("10"), 0, RoundingMode.FLOOR).multiply(BigDecimal("10"))
-                    if (roundDownTen < calculatedTotal && roundDownTen > BigDecimal.ZERO) {
-                        Surface(
-                            onClick = { finalPriceText = roundDownTen.stripTrailingZeros().toPlainString() },
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "Round ₹${roundDownTen.toPlainString()}",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 6.dp)
-                            )
-                        }
-                    }
-
-                    Surface(
-                        onClick = { finalPriceText = "" },
-                        shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = "Exact Total",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 6.dp)
-                        )
-                    }
-                }
-
                 // 4. Payment Mode Selection
                 Text(
                     text = "Payment Mode:",

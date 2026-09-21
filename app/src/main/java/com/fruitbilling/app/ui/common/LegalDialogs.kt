@@ -25,7 +25,7 @@ fun TermsOfServiceDialog(onDismiss: () -> Unit) {
         shape = RoundedCornerShape(16.dp),
         title = {
             Text(
-                text = "Terms & Conditions",
+                text = "Fruit Billing POS — Terms & Agreement",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
         },
@@ -33,61 +33,61 @@ fun TermsOfServiceDialog(onDismiss: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 380.dp)
+                    .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Welcome to Fruit Billing App. By using this application, you agree to the following terms:",
+                    text = "Welcome to Fruit Billing POS. By using this point-of-sale application, you agree to the following merchant terms and operational guidelines:",
                     style = MaterialTheme.typography.bodyMedium
                 )
 
                 Text(
-                    text = "1. Offline-First POS Operation",
+                    text = "1. Offline-First POS Architecture",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "Fruit Billing is built as an offline-first Point of Sale (POS) utility. All sales, pricing calculations, product catalogs, and bills are stored locally on your device via SQLite/Room database.",
+                    text = "Fruit Billing POS operates as a high-speed, offline-first cashier terminal. All daily sales, bill calculations, pricing data, customer phone numbers, and fruit catalogs are stored locally on your device in a secure SQLite database. The POS operates fully without an active internet connection.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "2. Pricing & Merchant Responsibility",
+                    text = "2. Google Cloud Sync & Multi-Account Isolation",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "You as the merchant/vendor have sole discretion and responsibility for configuring product prices, unit types, weight calculations, discounts, and customer billing totals.",
+                    text = "Google Account sign-in enables automatic, secure Google Cloud synchronization so your business data can be restored across device reinstalls. Each Google account functions as an isolated store workspace; switching accounts safely preserves previous data and loads only the matching account's sales records without cross-account data collapse.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "3. Cloud Backups & Google Account",
+                    text = "3. Merchant Responsibility for Billing & Pricing",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "Google Account sign-in is optional and provided solely to assist with data backup, restoration across devices, and Google Drive storage. You retain 100% ownership of your backup files.",
+                    text = "You as the merchant/cashier hold sole discretion and responsibility for managing fruit unit prices (per kg, piece, or box), entering scale weights, applying round-offs or manual discounts, collecting payments (Cash / UPI), and issuing receipts to customers.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "4. Limitation of Liability",
+                    text = "4. Data Ownership & Portability",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "The app is provided 'as is' without warranties of any kind. While built for maximum reliability, the developers are not liable for any data loss, hardware failure, or business discrepancies resulting from device issues.",
+                    text = "You retain 100% ownership of your business transactions. You may export your sales history to CSV spreadsheets, generate encrypted JSON backup files, share receipts via WhatsApp, or delete records at any time.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "5. Support & Inquiries",
+                    text = "5. Service & Support",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "For inquiries, feature requests, or technical support, contact us at feedback-midnightcompiler01@gmail.com.",
+                    text = "For feature suggestions, merchant inquiries, or technical support, contact the developer at feedback-midnightcompiler01@gmail.com.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -98,7 +98,7 @@ fun TermsOfServiceDialog(onDismiss: () -> Unit) {
                 onClick = onDismiss,
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Close")
+                Text("I Understand & Agree")
             }
         }
     )
@@ -111,7 +111,7 @@ fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
         shape = RoundedCornerShape(16.dp),
         title = {
             Text(
-                text = "Privacy Policy",
+                text = "Fruit Billing POS — Privacy Policy",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
         },
@@ -119,61 +119,61 @@ fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 380.dp)
+                    .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Your privacy is our utmost priority. Fruit Billing App is designed with privacy-by-design principles:",
+                    text = "Fruit Billing POS is engineered with strict privacy-by-design standards to protect your commercial operations:",
                     style = MaterialTheme.typography.bodyMedium
                 )
 
                 Text(
-                    text = "1. Zero Advertising & Tracking",
+                    text = "1. Zero Advertising & Zero Tracking",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "We do NOT sell, rent, monetize, or share your personal, transaction, or customer data with any advertisers or third-party brokers. There are no tracking or profiling SDKs in this app.",
+                    text = "We do NOT display third-party advertisements, monetize merchant activity, or sell, rent, or trade your sales totals, inventory counts, or customer information to any third parties. No marketing or profiling trackers exist within the application.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "2. Local Database Storage",
+                    text = "2. Sandboxed Local Storage",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "All your sales receipts, products, and customer phone numbers (if entered for receipts) remain strictly in your device's sandboxed local storage.",
+                    text = "Your business transactions, daily revenue figures, itemized calculations, and payment modes are stored within the sandboxed application storage on your device and are never written to public folders.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "3. Google Account Authentication",
+                    text = "3. Dedicated Cloud Security",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "When you choose to sign in with Google, only your basic profile name and email address are accessed locally to identify your backup session. No passwords or tokens are stored on external servers.",
+                    text = "When cloud sync is active, your backup data is stored in Google Cloud Firestore encrypted over HTTPS and isolated strictly by your Google email identifier. No other users can query or access your store's database.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "4. Your Data Ownership",
+                    text = "4. Multi-Account Privacy on Shared Devices",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "You can export all sales to CSV or JSON backup files, or delete all records at any time directly through the app settings.",
+                    text = "When signing out or switching between Google accounts, the local terminal resets its database to ensure sales figures from one cashier or store account never leak into another account session.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "5. Developer Contact",
+                    text = "5. Developer Inquiries",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "If you have questions regarding this Privacy Policy, email feedback-midnightcompiler01@gmail.com.",
+                    text = "For privacy requests or policy questions, email feedback-midnightcompiler01@gmail.com.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

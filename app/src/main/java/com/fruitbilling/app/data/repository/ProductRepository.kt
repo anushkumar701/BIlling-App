@@ -26,6 +26,15 @@ class ProductRepository(private val productDao: ProductDao) {
         existing == null
     }
 
+    private fun triggerCloudSync() {
+        try {
+            com.fruitbilling.app.data.backup.CloudBackupManager.triggerAsyncCloudSync(
+                context = com.fruitbilling.app.FruitBillingApp.instance,
+                database = com.fruitbilling.app.FruitBillingApp.instance.database
+            )
+        } catch (_: Exception) {}
+    }
+
     suspend fun insertProduct(name: String, price: BigDecimal, unit: ProductUnit): Result<Long> = withContext(Dispatchers.IO) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) {
@@ -44,6 +53,7 @@ class ProductRepository(private val productDao: ProductDao) {
             unit = unit
         )
         val id = productDao.insertProduct(product)
+        triggerCloudSync()
         Result.success(id)
     }
 
@@ -69,11 +79,13 @@ class ProductRepository(private val productDao: ProductDao) {
             updatedAt = System.currentTimeMillis()
         )
         productDao.updateProduct(updated)
+        triggerCloudSync()
         Result.success(Unit)
     }
 
     suspend fun deleteProduct(id: Long): Result<Unit> = withContext(Dispatchers.IO) {
         productDao.deleteProductById(id)
+        triggerCloudSync()
         Result.success(Unit)
     }
 
@@ -87,6 +99,7 @@ class ProductRepository(private val productDao: ProductDao) {
         val existing = productDao.getProductById(id)
             ?: return@withContext Result.failure(IllegalArgumentException("Product not found."))
         productDao.updateProduct(existing.copy(active = active, updatedAt = System.currentTimeMillis()))
+        triggerCloudSync()
         Result.success(Unit)
     }
 

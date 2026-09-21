@@ -126,13 +126,13 @@ fun AppNavigation(
             val email = user.email ?: ""
             if (email.isNotBlank()) {
                 coroutineScope.launch(Dispatchers.IO) {
-                    val restoreResult = CloudBackupManager.restoreFromCloud(context, app.database, email)
+                    val restoreResult = CloudBackupManager.handleAccountSignIn(context, app.database, email)
                     withContext(Dispatchers.Main) {
                         restoreResult.onSuccess { stats ->
                             if (stats.totalCount > 0) {
                                 android.widget.Toast.makeText(
                                     context,
-                                    "✅ Welcome back, ${user.displayName ?: email}! Restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills from cloud.",
+                                    "✅ Welcome back, ${user.displayName ?: email}! Loaded ${stats.productsRestored} fruits & ${stats.billsRestored} bills from cloud.",
                                     android.widget.Toast.LENGTH_LONG
                                 ).show()
                             } else {

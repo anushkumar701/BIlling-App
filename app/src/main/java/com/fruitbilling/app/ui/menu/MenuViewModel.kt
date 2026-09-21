@@ -13,12 +13,14 @@ import com.fruitbilling.app.data.model.ProductUnit
 import com.fruitbilling.app.data.repository.ProductRepository
 import com.fruitbilling.app.util.AppReleaseInfo
 import com.fruitbilling.app.util.OtaUpdateManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 
 data class MenuUiState(
@@ -31,6 +33,7 @@ data class MenuUiState(
     val lastBackupTimestamp: Long = 0L,
     val isBackingUp: Boolean = false,
     val isRestoring: Boolean = false,
+    val isRestoreConfirmationOpen: Boolean = false,
     // OTA App Updates state
     val isCheckingUpdate: Boolean = false,
     val updateReleaseInfo: AppReleaseInfo? = null,
@@ -67,16 +70,27 @@ class MenuViewModel(
 
     fun onGoogleSignInSuccess(user: GoogleUserData, context: Context? = null) {
         _uiState.value = _uiState.value.copy(googleUser = user)
-        viewModelScope.launch {
-            _snackbarMessages.emit("Connected: ${user.email}")
-            val email = user.email
-            if (context != null && !email.isNullOrBlank()) {
-                val restoreResult = CloudBackupManager.restoreFromCloud(context, database, email)
-                restoreResult.onSuccess { stats ->
-                    if (stats.totalCount > 0) {
-                        _snackbarMessages.emit("Automatically restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills from cloud!")
+        val email = user.email
+        if (context != null && !email.isNullOrBlank()) {
+            viewModelScope.launch(Dispatchers.IO) {
+                val restoreResult = CloudBackupManager.handleAccountSignIn(context, database, email)
+                withContext(Dispatchers.Main) {
+                    val updatedTime = CloudBackupManager.getLastBackupTime(context)
+                    _uiState.value = _uiState.value.copy(lastBackupTimestamp = updatedTime)
+                    restoreResult.onSuccess { stats ->
+                        if (stats.totalCount > 0) {
+                            _snackbarMessages.emit("✅ Loaded ${stats.productsRestored} fruits & ${stats.billsRestored} bills for $email")
+                        } else {
+                            _snackbarMessages.emit("Connected as $email")
+                        }
+                    }.onFailure { error ->
+                        _snackbarMessages.emit("Connected as $email (${error.message})")
                     }
                 }
+            }
+        } else {
+            viewModelScope.launch {
+                _snackbarMessages.emit("Connected: ${user.email}")
             }
         }
     }
@@ -88,10 +102,15 @@ class MenuViewModel(
     }
 
     fun onSignOut(context: Context) {
-        GoogleAuthManager.signOut(context) {
-            _uiState.value = _uiState.value.copy(googleUser = null)
-            viewModelScope.launch {
-                _snackbarMessages.emit("Signed out of Google account")
+        viewModelScope.launch(Dispatchers.IO) {
+            CloudBackupManager.handleAccountSignOut(context, database)
+            withContext(Dispatchers.Main) {
+                GoogleAuthManager.signOut(context) {
+                    _uiState.value = _uiState.value.copy(googleUser = null, lastBackupTimestamp = 0L)
+                    viewModelScope.launch {
+                        _snackbarMessages.emit("Signed out of Google account. Clean guest mode active.")
+                    }
+                }
             }
         }
     }
@@ -111,11 +130,24 @@ class MenuViewModel(
             result.onSuccess {
                 val updatedTime = CloudBackupManager.getLastBackupTime(context)
                 _uiState.value = _uiState.value.copy(lastBackupTimestamp = updatedTime)
-                _snackbarMessages.emit("☁️ Backup synced to Google Drive successfully!")
+                _snackbarMessages.emit("☁️ Cloud backup synced successfully!")
             }.onFailure { error ->
                 _snackbarMessages.emit("Cloud backup failed: ${error.message}")
             }
         }
+    }
+
+    fun onPromptRestoreFromCloud() {
+        _uiState.value = _uiState.value.copy(isRestoreConfirmationOpen = true)
+    }
+
+    fun onDismissRestorePrompt() {
+        _uiState.value = _uiState.value.copy(isRestoreConfirmationOpen = false)
+    }
+
+    fun onConfirmRestoreFromCloud(context: Context) {
+        _uiState.value = _uiState.value.copy(isRestoreConfirmationOpen = false)
+        onRestoreFromCloud(context)
     }
 
     fun onRestoreFromCloud(context: Context) {
@@ -133,9 +165,9 @@ class MenuViewModel(
             result.onSuccess { stats ->
                 val msg = when {
                     stats.totalCount == 0 -> "Cloud data is already up-to-date."
-                    stats.billsRestored == 0 -> "Restored ${stats.productsRestored} fruits from Google Drive!"
-                    stats.productsRestored == 0 -> "Restored ${stats.billsRestored} bills from Google Drive!"
-                    else -> "Restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills from Google Drive!"
+                    stats.billsRestored == 0 -> "Restored ${stats.productsRestored} fruits from cloud!"
+                    stats.productsRestored == 0 -> "Restored ${stats.billsRestored} bills from cloud!"
+                    else -> "Restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills from cloud!"
                 }
                 _snackbarMessages.emit("✅ $msg")
             }.onFailure { error ->

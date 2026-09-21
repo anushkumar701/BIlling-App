@@ -1,6 +1,7 @@
 package com.fruitbilling.app.ui.menu
 
 import androidx.compose.foundation.clickable
+import com.fruitbilling.app.data.backup.CloudBackupManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -97,13 +98,6 @@ fun MenuScreen(
         }
     }
 
-    val restoreFileLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            viewModel.onRestoreFromUri(context, uri)
-        }
-    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -247,7 +241,7 @@ fun MenuScreen(
                                 )
                             }
                             Text(
-                                text = "Sign in to securely backup your bill history and fruit catalog to Google Drive, or auto-restore previous sales.",
+                                text = "Sign in with Google to automatically back up your fruit inventory and bills to Google Cloud, and restore across reinstalls.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -263,15 +257,12 @@ fun MenuScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "Last Cloud Backup",
+                                    text = "Cloud Status",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.outline
                                 )
                                 Text(
-                                    text = if (uiState.lastBackupTimestamp > 0)
-                                        DateUtils.formatBillTimestamp(uiState.lastBackupTimestamp)
-                                    else
-                                        "Never backed up yet",
+                                    text = CloudBackupManager.getLastSyncFormatted(context),
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
                                 )
                             }
@@ -290,7 +281,7 @@ fun MenuScreen(
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("Syncing…")
                                 } else {
-                                    Text("☁️ Backup Now")
+                                    Text("☁️ Sync Now")
                                 }
                             }
                         }
@@ -306,12 +297,12 @@ fun MenuScreen(
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("📧 Send to Gmail", fontSize = 12.sp)
+                                Text("📧 Share File", fontSize = 12.sp)
                             }
 
                             OutlinedButton(
                                 onClick = {
-                                    viewModel.onRestoreFromCloud(context)
+                                    viewModel.onPromptRestoreFromCloud()
                                 },
                                 enabled = !uiState.isRestoring,
                                 modifier = Modifier.weight(1f),
@@ -407,7 +398,7 @@ fun MenuScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Fruit Billing v${com.fruitbilling.app.BuildConfig.VERSION_NAME}",
+                            text = "Fruit Billing POS • Production v${com.fruitbilling.app.BuildConfig.VERSION_NAME}",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
 
@@ -459,8 +450,8 @@ fun MenuScreen(
         if (uiState.isAddDialogOpen) {
             AddEditProductDialog(
                 product = null,
-                onSave = viewModel::onSaveProduct,
-                onDismiss = viewModel::onCloseDialog
+                onDismiss = viewModel::onCloseDialog,
+                onSave = viewModel::onSaveProduct
             )
         }
 
@@ -468,8 +459,8 @@ fun MenuScreen(
         uiState.editingProduct?.let { productToEdit ->
             AddEditProductDialog(
                 product = productToEdit,
-                onSave = viewModel::onSaveProduct,
-                onDismiss = viewModel::onCloseDialog
+                onDismiss = viewModel::onCloseDialog,
+                onSave = viewModel::onSaveProduct
             )
         }
 
@@ -479,6 +470,38 @@ fun MenuScreen(
                 product = productToDelete,
                 onConfirm = viewModel::onConfirmDelete,
                 onDismiss = viewModel::onCancelDelete
+            )
+        }
+
+        // Cloud Restore Confirmation Dialog
+        if (uiState.isRestoreConfirmationOpen) {
+            AlertDialog(
+                onDismissRequest = viewModel::onDismissRestorePrompt,
+                title = {
+                    Text(
+                        text = "Restore from Cloud?",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                text = {
+                    Text(
+                        text = "This will download and restore your saved fruits and historical bills for ${uiState.googleUser?.email ?: "your account"} from Google Cloud.\n\nExisting records will be safely updated without losing any data.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.onConfirmRestoreFromCloud(context) },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Restore Data")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::onDismissRestorePrompt) {
+                        Text("Cancel")
+                    }
+                }
             )
         }
 

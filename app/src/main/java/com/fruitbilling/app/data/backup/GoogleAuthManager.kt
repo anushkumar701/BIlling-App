@@ -82,7 +82,11 @@ object GoogleAuthManager {
 
     private fun clearSavedAccount(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().clear().apply()
+        prefs.edit()
+            .remove(KEY_EMAIL)
+            .remove(KEY_NAME)
+            .remove(KEY_PHOTO)
+            .apply()
     }
 
     /**

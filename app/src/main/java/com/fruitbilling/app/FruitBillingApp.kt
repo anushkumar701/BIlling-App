@@ -11,6 +11,11 @@ import kotlinx.coroutines.launch
 
 class FruitBillingApp : Application() {
 
+    companion object {
+        lateinit var instance: FruitBillingApp
+            private set
+    }
+
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val database by lazy { AppDatabase.getDatabase(this, applicationScope) }
@@ -25,10 +30,12 @@ class FruitBillingApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
+
         // Ensure default products exist on first launch & check daily backup (§17)
         applicationScope.launch(Dispatchers.IO) {
             productRepository.ensureDefaultProducts()
-            com.fruitbilling.app.data.backup.BackupManager.performDailyBackupIfDue(this@FruitBillingApp, database)
+            com.fruitbilling.app.data.backup.CloudBackupManager.autoBackupIfDailyDue(this@FruitBillingApp, database)
         }
     }
 }
