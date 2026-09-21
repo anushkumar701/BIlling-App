@@ -3,6 +3,7 @@ package com.fruitbilling.app.data.repository
 import com.fruitbilling.app.data.db.dao.ProductDao
 import com.fruitbilling.app.data.model.Product
 import com.fruitbilling.app.data.model.ProductUnit
+import com.fruitbilling.app.util.ProductImageUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -35,7 +36,12 @@ class ProductRepository(private val productDao: ProductDao) {
         } catch (_: Exception) {}
     }
 
-    suspend fun insertProduct(name: String, price: BigDecimal, unit: ProductUnit): Result<Long> = withContext(Dispatchers.IO) {
+    suspend fun insertProduct(
+        name: String,
+        price: BigDecimal,
+        unit: ProductUnit,
+        iconRef: String? = null
+    ): Result<Long> = withContext(Dispatchers.IO) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) {
             return@withContext Result.failure(IllegalArgumentException("Product name cannot be empty."))
@@ -50,14 +56,21 @@ class ProductRepository(private val productDao: ProductDao) {
         val product = Product(
             name = trimmed,
             price = price,
-            unit = unit
+            unit = unit,
+            iconRef = iconRef
         )
         val id = productDao.insertProduct(product)
         triggerCloudSync()
         Result.success(id)
     }
 
-    suspend fun updateProduct(id: Long, name: String, price: BigDecimal, unit: ProductUnit): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun updateProduct(
+        id: Long,
+        name: String,
+        price: BigDecimal,
+        unit: ProductUnit,
+        iconRef: String? = null
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) {
             return@withContext Result.failure(IllegalArgumentException("Product name cannot be empty."))
@@ -72,10 +85,16 @@ class ProductRepository(private val productDao: ProductDao) {
         val existing = productDao.getProductById(id)
             ?: return@withContext Result.failure(IllegalArgumentException("Product not found."))
 
+        // If replacing image with a different one, delete the old image
+        if (existing.iconRef != null && existing.iconRef != iconRef) {
+            ProductImageUtils.deleteImage(existing.iconRef)
+        }
+
         val updated = existing.copy(
             name = trimmed,
             price = price,
             unit = unit,
+            iconRef = iconRef,
             updatedAt = System.currentTimeMillis()
         )
         productDao.updateProduct(updated)
@@ -84,6 +103,10 @@ class ProductRepository(private val productDao: ProductDao) {
     }
 
     suspend fun deleteProduct(id: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        val existing = productDao.getProductById(id)
+        if (existing?.iconRef != null) {
+            ProductImageUtils.deleteImage(existing.iconRef)
+        }
         productDao.deleteProductById(id)
         triggerCloudSync()
         Result.success(Unit)
@@ -121,6 +144,12 @@ class ProductRepository(private val productDao: ProductDao) {
     }
 
     suspend fun clearAllProducts() = withContext(Dispatchers.IO) {
+        val all = productDao.getAllProductsSync()
+        all.forEach { p ->
+            if (p.iconRef != null) {
+                ProductImageUtils.deleteImage(p.iconRef)
+            }
+        }
         productDao.deleteAllProducts()
         triggerCloudSync()
     }

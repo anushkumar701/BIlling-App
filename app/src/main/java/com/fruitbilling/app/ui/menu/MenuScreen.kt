@@ -1,7 +1,10 @@
 package com.fruitbilling.app.ui.menu
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import com.fruitbilling.app.data.backup.CloudBackupManager
+import com.fruitbilling.app.util.rememberProductImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -200,7 +203,7 @@ fun MenuScreen(
                                     onClick = viewModel::onLoadProfessionalDefaults,
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text("🍎 Load Standard Fruits", fontSize = 12.sp)
+                                    Text("Load Standard Fruits", fontSize = 12.sp)
                                 }
                             }
                         }
@@ -640,34 +643,54 @@ fun ProductRowItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = product.name,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                    if (!product.active) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text(
-                                text = "Inactive",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
-                            )
-                        }
+            val imageBitmap = rememberProductImage(product.iconRef)
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (imageBitmap != null) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Image(
+                            bitmap = imageBitmap,
+                            contentDescription = product.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
-                Text(
-                    text = "${MoneyUtils.formatWholePrice(product.price)}${product.unit.unitLabel}",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = product.name,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                        if (!product.active) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "Inactive",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = "${MoneyUtils.formatWholePrice(product.price)}${product.unit.unitLabel}",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     )
-                )
+                }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

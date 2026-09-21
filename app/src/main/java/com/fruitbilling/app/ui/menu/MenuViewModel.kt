@@ -317,7 +317,8 @@ class MenuViewModel(
         id: Long?,
         name: String,
         priceText: String,
-        unit: ProductUnit
+        unit: ProductUnit,
+        iconRef: String? = null
     ) {
         val trimmedName = name.trim()
         if (trimmedName.isEmpty()) {
@@ -334,7 +335,7 @@ class MenuViewModel(
         viewModelScope.launch {
             if (id == null || id == 0L) {
                 // Add
-                productRepository.insertProduct(trimmedName, price, unit)
+                productRepository.insertProduct(trimmedName, price, unit, iconRef)
                     .onSuccess {
                         _uiState.value = _uiState.value.copy(isAddDialogOpen = false)
                         _snackbarMessages.emit("Product '$trimmedName' added.")
@@ -344,7 +345,7 @@ class MenuViewModel(
                     }
             } else {
                 // Edit
-                productRepository.updateProduct(id, trimmedName, price, unit)
+                productRepository.updateProduct(id, trimmedName, price, unit, iconRef)
                     .onSuccess {
                         _uiState.value = _uiState.value.copy(editingProduct = null)
                         _snackbarMessages.emit("Product '$trimmedName' updated.")

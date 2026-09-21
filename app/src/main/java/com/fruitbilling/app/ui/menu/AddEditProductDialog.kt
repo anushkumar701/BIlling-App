@@ -1,18 +1,29 @@
 package com.fruitbilling.app.ui.menu
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -26,19 +37,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.fruitbilling.app.data.model.Product
 import com.fruitbilling.app.data.model.ProductUnit
+import com.fruitbilling.app.util.ProductImageUtils
+import com.fruitbilling.app.util.rememberProductImage
 
 @Composable
 fun AddEditProductDialog(
     product: Product?,
-    onSave: (id: Long?, name: String, price: String, unit: ProductUnit) -> Unit,
+    onSave: (id: Long?, name: String, price: String, unit: ProductUnit, iconRef: String?) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     val isEdit = product != null
     var name by remember { mutableStateOf(product?.name ?: "") }
     var priceText by remember {
@@ -47,7 +64,23 @@ fun AddEditProductDialog(
         )
     }
     var unit by remember { mutableStateOf(product?.unit ?: ProductUnit.KG) }
+    var iconRef by remember { mutableStateOf(product?.iconRef) }
     var errorText by remember { mutableStateOf<String?>(null) }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            val savedPath = ProductImageUtils.saveImage(context, it)
+            if (savedPath != null) {
+                // If user selected an image previously in this session that is not the saved product's image, clean it up
+                if (iconRef != null && iconRef != product?.iconRef && iconRef != savedPath) {
+                    ProductImageUtils.deleteImage(iconRef)
+                }
+                iconRef = savedPath
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -71,7 +104,7 @@ fun AddEditProductDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Product Name") },
-                    placeholder = { Text("e.g. Papali, Orange") },
+                    placeholder = { Text("e.g. Papaya, Orange") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
                 )
@@ -148,6 +181,67 @@ fun AddEditProductDialog(
                     }
                 }
 
+                // Optional Product Image Section
+                Text(
+                    text = "Product Image (Optional):",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
+
+                val imageBitmap = rememberProductImage(iconRef)
+                if (imageBitmap != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                            modifier = Modifier.size(52.dp)
+                        ) {
+                            Image(
+                                bitmap = imageBitmap,
+                                contentDescription = "Product preview",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = { imagePickerLauncher.launch("image/*") },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text("Change Image", fontSize = 12.sp)
+                        }
+
+                        TextButton(
+                            onClick = {
+                                if (iconRef != product?.iconRef) {
+                                    ProductImageUtils.deleteImage(iconRef)
+                                }
+                                iconRef = null
+                            }
+                        ) {
+                            Text("Remove", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                        }
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { imagePickerLauncher.launch("image/*") },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Select Image (Optional)", fontSize = 13.sp)
+                    }
+                }
+
                 if (errorText != null) {
                     Text(
                         text = errorText!!,
@@ -169,7 +263,7 @@ fun AddEditProductDialog(
                         errorText = "Price must be greater than 0."
                         return@Button
                     }
-                    onSave(product?.id, name, priceText, unit)
+                    onSave(product?.id, name, priceText, unit, iconRef)
                 },
                 shape = RoundedCornerShape(8.dp)
             ) {

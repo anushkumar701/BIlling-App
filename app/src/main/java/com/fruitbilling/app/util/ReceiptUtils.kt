@@ -13,7 +13,7 @@ object ReceiptUtils {
      */
     fun generateReceiptText(
         billWithItems: BillWithItems,
-        storeName: String = "🍎 Fresh Fruits & Vegetables",
+        storeName: String = "Fresh Fruits & Vegetables",
         changeAmount: BigDecimal? = null
     ): String {
         val bill = billWithItems.bill

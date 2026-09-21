@@ -1,7 +1,11 @@
 package com.fruitbilling.app.ui.billing
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import com.fruitbilling.app.util.rememberProductImage
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,33 +61,7 @@ import com.fruitbilling.app.util.MoneyUtils
 import java.math.BigDecimal
 import java.math.RoundingMode
 
-/**
- * Returns a friendly fruit emoji matching the product name.
- */
-fun getFruitEmoji(name: String): String {
-    val lower = name.lowercase()
-    return when {
-        lower.contains("apple") -> "🍎"
-        lower.contains("banana") || lower.contains("pazham") || lower.contains("palam") ||
-                lower.contains("yelaki") || lower.contains("poovam") || lower.contains("sevvazai") ||
-                lower.contains("malapazham") || lower.contains("karupurvalli") -> "🍌"
-        lower.contains("orange") || lower.contains("citrus") -> "🍊"
-        lower.contains("mango") || lower.contains("manga") -> "🥭"
-        lower.contains("papaya") || lower.contains("papali") -> "🍈"
-        lower.contains("madhulai") || lower.contains("pomegranate") -> "🫐"
-        lower.contains("grape") -> "🍇"
-        lower.contains("melon") || lower.contains("watermelon") -> "🍉"
-        lower.contains("straw") || lower.contains("berry") -> "🍓"
-        lower.contains("pine") || lower.contains("ananas") -> "🍍"
-        lower.contains("lemon") || lower.contains("lime") -> "🍋"
-        lower.contains("guava") || lower.contains("koyya") -> "🍐"
-        lower.contains("coconut") || lower.contains("thengai") -> "🥥"
-        lower.contains("dragon") -> "🐉"
-        lower.contains("kiwi") -> "🥝"
-        lower.contains("avocado") -> "🥑"
-        else -> "🍏"
-    }
-}
+
 
 /**
  * ProductCatalogSection — compact fruit catalog with real-time search
@@ -247,6 +225,7 @@ private fun FruitChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val imageBitmap = rememberProductImage(product.iconRef)
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
@@ -259,10 +238,16 @@ private fun FruitChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(
-                text = getFruitEmoji(product.name),
-                fontSize = 15.sp
-            )
+            if (imageBitmap != null) {
+                Image(
+                    bitmap = imageBitmap,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                )
+            }
             Text(
                 text = product.name,
                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -326,14 +311,24 @@ fun AddProductDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
+            val imageBitmap = rememberProductImage(product.iconRef)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = getFruitEmoji(product.name), fontSize = 24.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
+                    if (imageBitmap != null) {
+                        Image(
+                            bitmap = imageBitmap,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Column {
                         Text(
                             text = product.name,
