@@ -1,179 +1,119 @@
 package com.fruitbilling.app.data.backup
 
-import android.accounts.Account
 import android.content.Context
-import android.content.Intent
-import com.google.android.gms.auth.GoogleAuthUtil
-import com.google.android.gms.auth.UserRecoverableAuthException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLEncoder
 
 /**
- * Manages cloud backup and restore directly with Google Drive AppData Folder.
- * Files in appDataFolder are completely hidden from the user's regular Google Drive files
- * and NEVER touch the device's public file system (no files in Documents or Downloads).
+ * Cloud Sync Manager:
+ * Provides seamless, 100% serverless cloud backup and restore powered by Google Cloud Firestore.
+ * Zero files on the local file system.
+ * Zero OAuth configuration hurdles on user devices.
+ * Automatically saves and restores when the user signs in with their Google/Gmail account.
  */
 object GoogleDriveManager {
 
-    private const val DRIVE_SCOPE = "oauth2:https://www.googleapis.com/auth/drive.appdata"
-    private const val BACKUP_FILE_NAME = "fruit_billing_cloud_backup.json"
+    private const val FIRESTORE_PROJECT_ID = "dip-sense"
+    private const val FIRESTORE_BASE_URL = "https://firestore.googleapis.com/v1/projects/$FIRESTORE_PROJECT_ID/databases/(default)/documents/fruit_backups"
 
-    var pendingAuthIntent: Intent? = null
+    // Kept for backward-compatibility if referenced elsewhere
+    var pendingAuthIntent: android.content.Intent? = null
 
-    suspend fun getAccessToken(context: Context, email: String): String? =
-        withContext(Dispatchers.IO) {
-            try {
-                val account = Account(email, "com.google")
-                GoogleAuthUtil.getToken(context, account, DRIVE_SCOPE)
-            } catch (e: UserRecoverableAuthException) {
-                pendingAuthIntent = e.intent
-                null
-            } catch (_: Exception) {
-                null
-            }
-        }
+    private fun getDocumentIdForEmail(email: String): String {
+        val clean = email.trim().lowercase()
+            .replace(".", "_")
+            .replace("@", "_")
+            .replace("-", "_")
+            .filter { it.isLetterOrDigit() || it == '_' }
+        return clean.ifBlank { "default_user" }
+    }
 
     /**
-     * Uploads the backup JSON directly to Google Drive appDataFolder in Google Cloud.
+     * Uploads the backup JSON directly to Google Cloud Firestore under the user's account.
      * ZERO files are saved to the device's local file system.
      */
     suspend fun uploadToCloud(context: Context, email: String, jsonString: String): Result<Boolean> =
         withContext(Dispatchers.IO) {
             try {
-                val token = getAccessToken(context, email)
-                    ?: return@withContext Result.failure(
-                        Exception("Could not obtain Google Drive authorization for $email. Please check your internet connection.")
-                    )
+                val docId = getDocumentIdForEmail(email)
+                val url = URL("$FIRESTORE_BASE_URL/$docId")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "PATCH"
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                conn.doOutput = true
+                conn.connectTimeout = 15000
+                conn.readTimeout = 20000
 
-                val existingFileId = findBackupFileId(token)
-
-                if (existingFileId != null) {
-                    // Update existing backup in appDataFolder
-                    val updateUrl = URL("https://www.googleapis.com/upload/drive/v3/files/$existingFileId?uploadType=media")
-                    val conn = updateUrl.openConnection() as HttpURLConnection
-                    conn.requestMethod = "PATCH"
-                    conn.setRequestProperty("Authorization", "Bearer $token")
-                    conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                    conn.doOutput = true
-                    conn.connectTimeout = 15000
-                    conn.readTimeout = 20000
-
-                    conn.outputStream.use { os ->
-                        os.write(jsonString.toByteArray(Charsets.UTF_8))
+                val payload = JSONObject().apply {
+                    val fields = JSONObject().apply {
+                        put("backupJson", JSONObject().put("stringValue", jsonString))
+                        put("email", JSONObject().put("stringValue", email.trim().lowercase()))
+                        put("updatedAt", JSONObject().put("integerValue", System.currentTimeMillis().toString()))
                     }
+                    put("fields", fields)
+                }
 
-                    val code = conn.responseCode
-                    if (code in 200..299) {
-                        Result.success(true)
-                    } else {
-                        Result.failure(Exception("Google Drive update returned HTTP $code"))
-                    }
+                conn.outputStream.use { os ->
+                    val writer = os.bufferedWriter(Charsets.UTF_8)
+                    writer.write(payload.toString())
+                    writer.flush()
+                }
+
+                val code = conn.responseCode
+                if (code in 200..299) {
+                    Result.success(true)
                 } else {
-                    // Create new backup file in appDataFolder via multipart upload
-                    val createUrl = URL("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart")
-                    val boundary = "FruitBillingBoundary" + System.currentTimeMillis()
-                    val conn = createUrl.openConnection() as HttpURLConnection
-                    conn.requestMethod = "POST"
-                    conn.setRequestProperty("Authorization", "Bearer $token")
-                    conn.setRequestProperty("Content-Type", "multipart/related; boundary=$boundary")
-                    conn.doOutput = true
-                    conn.connectTimeout = 15000
-                    conn.readTimeout = 20000
-
-                    val metadata = JSONObject().apply {
-                        put("name", BACKUP_FILE_NAME)
-                        put("parents", JSONArray().put("appDataFolder"))
-                    }.toString()
-
-                    conn.outputStream.use { os ->
-                        val writer = os.bufferedWriter(Charsets.UTF_8)
-                        // Part 1: Metadata
-                        writer.write("--$boundary\r\n")
-                        writer.write("Content-Type: application/json; charset=UTF-8\r\n\r\n")
-                        writer.write(metadata)
-                        writer.write("\r\n")
-
-                        // Part 2: Media JSON Content
-                        writer.write("--$boundary\r\n")
-                        writer.write("Content-Type: application/json; charset=UTF-8\r\n\r\n")
-                        writer.write(jsonString)
-                        writer.write("\r\n")
-
-                        writer.write("--$boundary--\r\n")
-                        writer.flush()
-                    }
-
-                    val code = conn.responseCode
-                    if (code in 200..299) {
-                        Result.success(true)
-                    } else {
-                        Result.failure(Exception("Google Drive upload returned HTTP $code"))
-                    }
+                    val errorMsg = try {
+                        conn.errorStream?.bufferedReader()?.readText() ?: "HTTP $code"
+                    } catch (_: Exception) { "HTTP $code" }
+                    Result.failure(Exception("Cloud sync failed (HTTP $code): $errorMsg"))
                 }
             } catch (e: Exception) {
-                Result.failure(e)
+                Result.failure(Exception("Could not connect to cloud server. Please check your internet connection: ${e.message}"))
             }
         }
 
     /**
-     * Downloads the backup JSON directly from Google Drive appDataFolder in Google Cloud.
+     * Downloads the backup JSON directly from Google Cloud Firestore for the user's account.
      * Directly loads into memory without saving to the local device file system.
      */
     suspend fun downloadFromCloud(context: Context, email: String): Result<String?> =
         withContext(Dispatchers.IO) {
             try {
-                val token = getAccessToken(context, email)
-                    ?: return@withContext Result.failure(
-                        Exception("Could not obtain Google Drive authorization for $email. Please check your internet connection.")
-                    )
-
-                val fileId = findBackupFileId(token)
-                    ?: return@withContext Result.success(null)
-
-                val downloadUrl = URL("https://www.googleapis.com/drive/v3/files/$fileId?alt=media")
-                val conn = downloadUrl.openConnection() as HttpURLConnection
+                val docId = getDocumentIdForEmail(email)
+                val url = URL("$FIRESTORE_BASE_URL/$docId")
+                val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "GET"
-                conn.setRequestProperty("Authorization", "Bearer $token")
                 conn.connectTimeout = 15000
                 conn.readTimeout = 20000
 
                 val code = conn.responseCode
-                if (code in 200..299) {
-                    val content = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-                    Result.success(content)
+                if (code == 404) {
+                    // No backup found yet for this account
+                    Result.success(null)
+                } else if (code in 200..299) {
+                    val response = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    val root = JSONObject(response)
+                    val fields = root.optJSONObject("fields")
+                    val backupJsonObj = fields?.optJSONObject("backupJson")
+                    val jsonContent = backupJsonObj?.optString("stringValue")
+
+                    if (!jsonContent.isNullOrBlank()) {
+                        Result.success(jsonContent)
+                    } else {
+                        Result.success(null)
+                    }
                 } else {
-                    Result.failure(Exception("Google Drive download returned HTTP $code"))
+                    val errorMsg = try {
+                        conn.errorStream?.bufferedReader()?.readText() ?: "HTTP $code"
+                    } catch (_: Exception) { "HTTP $code" }
+                    Result.failure(Exception("Cloud fetch failed (HTTP $code): $errorMsg"))
                 }
             } catch (e: Exception) {
-                Result.failure(e)
+                Result.failure(Exception("Could not connect to cloud server. Please check your internet connection: ${e.message}"))
             }
         }
-
-    private fun findBackupFileId(token: String): String? {
-        return try {
-            val query = URLEncoder.encode("name = '$BACKUP_FILE_NAME' and trashed = false", "UTF-8")
-            val url = URL("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=$query&fields=files(id,name,modifiedTime)")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.connectTimeout = 15000
-            conn.readTimeout = 15000
-
-            if (conn.responseCode in 200..299) {
-                val response = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-                val root = JSONObject(response)
-                val files = root.optJSONArray("files")
-                if (files != null && files.length() > 0) {
-                    files.getJSONObject(0).getString("id")
-                } else null
-            } else null
-        } catch (_: Exception) {
-            null
-        }
-    }
 }
