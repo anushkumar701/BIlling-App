@@ -98,17 +98,10 @@ fun MenuScreen(
     }
 
     val restoreFileLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            try {
-                val jsonString = context.contentResolver.openInputStream(uri)?.use { stream ->
-                    stream.bufferedReader().readText()
-                }
-                if (!jsonString.isNullOrBlank()) {
-                    viewModel.onRestoreBackup(jsonString)
-                }
-            } catch (_: Exception) {}
+            viewModel.onRestoreFromUri(context, uri)
         }
     }
 
@@ -313,12 +306,14 @@ fun MenuScreen(
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("📤 Share File", fontSize = 12.sp)
+                                Text("📧 Send to Gmail", fontSize = 12.sp)
                             }
 
                             OutlinedButton(
                                 onClick = {
-                                    restoreFileLauncher.launch("application/json")
+                                    viewModel.onAutoRestore(context) {
+                                        restoreFileLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+                                    }
                                 },
                                 enabled = !uiState.isRestoring,
                                 modifier = Modifier.weight(1f),

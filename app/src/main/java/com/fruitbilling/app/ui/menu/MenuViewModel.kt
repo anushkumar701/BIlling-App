@@ -105,7 +105,7 @@ class MenuViewModel(
                     isBackingUp = false,
                     lastBackupTimestamp = updatedTime
                 )
-                _snackbarMessages.emit("Backup created and saved successfully!")
+                _snackbarMessages.emit("Backup saved to device (Downloads & Documents)!")
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(isBackingUp = false)
                 _snackbarMessages.emit("Backup failed: ${error.message}")
@@ -114,20 +114,60 @@ class MenuViewModel(
     }
 
     fun onShareBackupFile(context: Context) {
+        val userEmail = _uiState.value.googleUser?.email ?: GoogleAuthManager.getLastSignedInAccount(context)?.email
         val latestFile = CloudBackupManager.getLatestBackupFile(context)
         if (latestFile != null && latestFile.exists()) {
-            CloudBackupManager.saveToGoogleDriveOrShare(context, latestFile)
+            CloudBackupManager.saveToGoogleDriveOrShare(context, latestFile, userEmail)
         } else {
             viewModelScope.launch {
                 _uiState.value = _uiState.value.copy(isBackingUp = true)
                 val result = CloudBackupManager.createBackupJson(context, database)
                 result.onSuccess { backupFile ->
                     _uiState.value = _uiState.value.copy(isBackingUp = false)
-                    CloudBackupManager.saveToGoogleDriveOrShare(context, backupFile)
+                    CloudBackupManager.saveToGoogleDriveOrShare(context, backupFile, userEmail)
                 }.onFailure { error ->
                     _uiState.value = _uiState.value.copy(isBackingUp = false)
                     _snackbarMessages.emit("Share failed: ${error.message}")
                 }
+            }
+        }
+    }
+
+    fun onAutoRestore(context: Context, onNoLocalFound: () -> Unit) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isRestoring = true)
+            val result = CloudBackupManager.autoRestoreLatestBackupIfAvailable(context, database)
+            _uiState.value = _uiState.value.copy(isRestoring = false)
+            if (result != null && result.isSuccess) {
+                val stats = result.getOrNull()
+                val msg = when {
+                    stats == null || stats.totalCount == 0 -> "Backup data is already up-to-date."
+                    stats.billsRestored == 0 -> "Restored ${stats.productsRestored} fruits successfully!"
+                    stats.productsRestored == 0 -> "Restored ${stats.billsRestored} bills successfully!"
+                    else -> "Restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills successfully!"
+                }
+                _snackbarMessages.emit(msg)
+            } else {
+                onNoLocalFound()
+            }
+        }
+    }
+
+    fun onRestoreFromUri(context: Context, uri: android.net.Uri) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isRestoring = true)
+            val result = CloudBackupManager.restoreFromUri(context, uri, database)
+            _uiState.value = _uiState.value.copy(isRestoring = false)
+            result.onSuccess { stats ->
+                val msg = when {
+                    stats.totalCount == 0 -> "Backup data is already up-to-date."
+                    stats.billsRestored == 0 -> "Restored ${stats.productsRestored} fruits successfully!"
+                    stats.productsRestored == 0 -> "Restored ${stats.billsRestored} bills successfully!"
+                    else -> "Restored ${stats.productsRestored} fruits & ${stats.billsRestored} bills successfully!"
+                }
+                _snackbarMessages.emit(msg)
+            }.onFailure { error ->
+                _snackbarMessages.emit("Restore failed: ${error.message}")
             }
         }
     }

@@ -1,7 +1,13 @@
 package com.fruitbilling.app.data.backup
 
+import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import com.fruitbilling.app.data.db.AppDatabase
 import com.fruitbilling.app.data.model.Bill
@@ -24,7 +30,8 @@ import java.util.Locale
 /**
  * Cloud Backup Manager:
  * Creates portable JSON backups of all products and bills, tracks last backup timestamp,
- * and allows saving directly to Google Drive / Cloud or restoring data.
+ * saves copies to multiple persistent device locations (Documents, Downloads, MediaStore)
+ * that survive app reinstallation, and allows saving directly to Google Drive / Gmail.
  */
 object CloudBackupManager {
 
@@ -120,47 +127,200 @@ object CloudBackupManager {
                     put("bills", billsArray)
                 }
 
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                val fileName = "FruitBilling_Backup_$timestamp.json"
+                val jsonString = root.toString(2)
+
+                // 1. Primary app-internal storage file
                 val backupDir = File(context.filesDir, "cloud_backups")
                 if (!backupDir.exists()) backupDir.mkdirs()
+                val primaryBackupFile = File(backupDir, fileName)
+                primaryBackupFile.writeText(jsonString)
 
-                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-                val backupFile = File(backupDir, "FruitBilling_Backup_$timestamp.json")
+                // 2. Persistent public directories (survive app uninstall & reinstall)
+                val persistentDirs = listOfNotNull(
+                    File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "FruitBilling"),
+                    File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "FruitBilling"),
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+                    context.getExternalFilesDir("backups")
+                )
 
-                FileWriter(backupFile).use { writer ->
-                    writer.write(root.toString(2))
+                for (dir in persistentDirs) {
+                    try {
+                        if (!dir.exists()) dir.mkdirs()
+                        val persistentFile = File(dir, fileName)
+                        persistentFile.writeText(jsonString)
+                    } catch (_: Exception) {
+                        // Ignore permission restrictions on specific target dirs
+                    }
+                }
+
+                // 3. Android Q+ MediaStore Downloads collection (accessible across installs)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    try {
+                        val contentValues = ContentValues().apply {
+                            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                            put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
+                            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/FruitBilling")
+                        }
+                        val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                        if (uri != null) {
+                            context.contentResolver.openOutputStream(uri)?.use { stream ->
+                                stream.write(jsonString.toByteArray(Charsets.UTF_8))
+                            }
+                        }
+                    } catch (_: Exception) {}
                 }
 
                 setLastBackupTime(context, System.currentTimeMillis())
-                Result.success(backupFile)
+                Result.success(primaryBackupFile)
             } catch (e: Exception) {
                 Result.failure(e)
             }
         }
 
-    fun getLatestBackupFile(context: Context): File? {
-        val backupDir = File(context.filesDir, "cloud_backups")
-        if (!backupDir.exists()) return null
-        return backupDir.listFiles { file -> file.isFile && file.extension.equals("json", ignoreCase = true) }
-            ?.maxByOrNull { it.lastModified() }
+    /**
+     * Scans all persistent locations on device (Documents, Downloads, internal storage,
+     * external storage, MediaStore) to find any existing backup file.
+     * Crucial for restoring data after an app re-installation.
+     */
+    fun getAllCandidateBackupFiles(context: Context): List<File> {
+        val searchDirs = listOfNotNull(
+            File(context.filesDir, "cloud_backups"),
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "FruitBilling"),
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "FruitBilling"),
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+            context.getExternalFilesDir("backups"),
+            context.getExternalFilesDir(null),
+            File("/sdcard/Download"),
+            File("/sdcard/Documents")
+        )
+
+        val foundFiles = mutableListOf<File>()
+        val seenPaths = mutableSetOf<String>()
+
+        for (dir in searchDirs) {
+            try {
+                if (!dir.exists() || !dir.isDirectory) continue
+                val files = dir.listFiles { file ->
+                    file.isFile && (
+                        file.name.startsWith("FruitBilling_Backup_", ignoreCase = true) ||
+                        (file.name.contains("FruitBilling", ignoreCase = true) && file.extension.equals("json", ignoreCase = true)) ||
+                        (file.name.contains("backup", ignoreCase = true) && file.extension.equals("json", ignoreCase = true))
+                    )
+                } ?: continue
+
+                for (f in files) {
+                    if (f.canRead() && seenPaths.add(f.canonicalPath)) {
+                        foundFiles.add(f)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        return foundFiles.sortedByDescending { it.lastModified() }
     }
 
-    suspend fun autoRestoreLatestBackupIfAvailable(context: Context, database: AppDatabase): Result<RestoreResult>? {
-        val file = getLatestBackupFile(context) ?: return null
+    fun getLatestBackupFile(context: Context): File? {
+        return getAllCandidateBackupFiles(context).firstOrNull()
+    }
+
+    /**
+     * Retrieves the latest backup JSON string either from file system or MediaStore Downloads.
+     */
+    fun getLatestBackupJsonString(context: Context): String? {
+        // 1. Check all candidate files on file system
+        val files = getAllCandidateBackupFiles(context)
+        for (f in files) {
+            try {
+                val text = f.readText()
+                if (isValidBackupJson(text)) {
+                    return text
+                }
+            } catch (_: Exception) {}
+        }
+
+        // 2. Check MediaStore Downloads for Android Q+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val projection = arrayOf(
+                    MediaStore.MediaColumns._ID,
+                    MediaStore.MediaColumns.DISPLAY_NAME,
+                    MediaStore.MediaColumns.DATE_MODIFIED
+                )
+                val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?"
+                val selectionArgs = arrayOf("FruitBilling_Backup_%.json")
+                val sortOrder = "${MediaStore.MediaColumns.DATE_MODIFIED} DESC"
+
+                context.contentResolver.query(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    sortOrder
+                )?.use { cursor ->
+                    val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getLong(idCol)
+                        val contentUri = ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id)
+                        try {
+                            val text = context.contentResolver.openInputStream(contentUri)?.bufferedReader()?.readText()
+                            if (text != null && isValidBackupJson(text)) {
+                                return text
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        return null
+    }
+
+    private fun isValidBackupJson(jsonString: String): Boolean {
+        if (jsonString.isBlank()) return false
         return try {
-            val jsonString = file.readText()
-            if (jsonString.isNotBlank()) {
-                restoreFromJson(jsonString, database)
-            } else null
+            val root = JSONObject(jsonString)
+            root.has("products") || root.has("bills") || root.optString("appName") == "FruitBillingApp"
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Attempts to automatically restore the most recent backup found on device.
+     */
+    suspend fun autoRestoreLatestBackupIfAvailable(context: Context, database: AppDatabase): Result<RestoreResult>? {
+        val jsonString = getLatestBackupJsonString(context) ?: return null
+        return try {
+            restoreFromJson(jsonString, database)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     /**
-     * Saves / shares the backup JSON file to Google Drive (via Android native Drive integration),
-     * Files, WhatsApp, or Gmail.
+     * Restores backup directly from a content:// or file:// URI (e.g. chosen from Gmail, Google Drive, or Downloads).
      */
-    fun saveToGoogleDriveOrShare(context: Context, backupFile: File) {
+    suspend fun restoreFromUri(context: Context, uri: Uri, database: AppDatabase): Result<RestoreResult> =
+        withContext(Dispatchers.IO) {
+            try {
+                val jsonString = context.contentResolver.openInputStream(uri)?.use { stream ->
+                    stream.bufferedReader().readText()
+                } ?: return@withContext Result.failure(Exception("Could not open selected backup file"))
+                restoreFromJson(jsonString, database)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /**
+     * Saves / shares the backup JSON file to Google Drive (via Android native Drive integration),
+     * Files, WhatsApp, or Gmail. Pre-addresses email to signed-in user's Gmail if available.
+     */
+    fun saveToGoogleDriveOrShare(context: Context, backupFile: File, userEmail: String? = null) {
         val uri = FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
@@ -170,12 +330,21 @@ object CloudBackupManager {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/json"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "Fruit Billing Cloud Backup")
-            putExtra(Intent.EXTRA_TEXT, "Fruit Billing App Database Backup. Keep this file safe.")
+            if (!userEmail.isNullOrBlank()) {
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(userEmail))
+            }
+            putExtra(Intent.EXTRA_SUBJECT, "Fruit Billing Cloud Backup - ${SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())}")
+            putExtra(
+                Intent.EXTRA_TEXT,
+                "Fruit Billing App Database Backup.\n\n" +
+                "To restore your data:\n" +
+                "1. Open this email on your phone and tap the attachment to open with Fruit Billing, OR\n" +
+                "2. Download this attachment to your phone, then open Fruit Billing and sign in to auto-restore."
+            )
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        val chooser = Intent.createChooser(intent, "Save to Google Drive / Files")
+        val chooser = Intent.createChooser(intent, "Send to Gmail / Google Drive / Files")
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(chooser)
     }
