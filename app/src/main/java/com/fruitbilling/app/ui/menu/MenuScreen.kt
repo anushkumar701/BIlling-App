@@ -139,13 +139,71 @@ fun MenuScreen(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
 
-                    Button(
-                        onClick = viewModel::onOpenAddDialog,
-                        shape = RoundedCornerShape(8.dp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (uiState.products.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = viewModel::onPromptClearAll,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text("Make Blank", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+
+                        Button(
+                            onClick = viewModel::onOpenAddDialog,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = "Add", modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("+ Add")
+                        }
+                    }
+                }
+            }
+
+            // Empty state if catalog is blank
+            if (uiState.products.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                     ) {
-                        Icon(imageVector = Icons.Default.Add, contentDescription = "Add", modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("+ Add")
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = "Catalog is currently blank",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "You can add your own custom fruits, or load standard professional fruit items with one tap.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = viewModel::onOpenAddDialog,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("+ Add Fruit", fontSize = 12.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = viewModel::onLoadProfessionalDefaults,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("🍎 Load Standard Fruits", fontSize = 12.sp)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -499,6 +557,41 @@ fun MenuScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = viewModel::onDismissRestorePrompt) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Clear All Confirmation Dialog
+        if (uiState.isClearAllDialogOpen) {
+            AlertDialog(
+                onDismissRequest = viewModel::onDismissClearAll,
+                title = {
+                    Text(
+                        text = "Make Catalog Blank?",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                text = {
+                    Text(
+                        text = "This will clear all ${uiState.products.size} fruit items from your catalog so you can start with a clean blank slate.\n\nYou can add custom fruits or load standard items anytime.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = viewModel::onConfirmClearAll,
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Make Blank")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::onDismissClearAll) {
                         Text("Cancel")
                     }
                 }

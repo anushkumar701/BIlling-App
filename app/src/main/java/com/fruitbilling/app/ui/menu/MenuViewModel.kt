@@ -34,6 +34,7 @@ data class MenuUiState(
     val isBackingUp: Boolean = false,
     val isRestoring: Boolean = false,
     val isRestoreConfirmationOpen: Boolean = false,
+    val isClearAllDialogOpen: Boolean = false,
     // OTA App Updates state
     val isCheckingUpdate: Boolean = false,
     val updateReleaseInfo: AppReleaseInfo? = null,
@@ -148,6 +149,29 @@ class MenuViewModel(
     fun onConfirmRestoreFromCloud(context: Context) {
         _uiState.value = _uiState.value.copy(isRestoreConfirmationOpen = false)
         onRestoreFromCloud(context)
+    }
+
+    fun onPromptClearAll() {
+        _uiState.value = _uiState.value.copy(isClearAllDialogOpen = true)
+    }
+
+    fun onDismissClearAll() {
+        _uiState.value = _uiState.value.copy(isClearAllDialogOpen = false)
+    }
+
+    fun onConfirmClearAll() {
+        _uiState.value = _uiState.value.copy(isClearAllDialogOpen = false)
+        viewModelScope.launch {
+            productRepository.clearAllProducts()
+            _snackbarMessages.emit("Catalog cleared. You now have a blank catalog.")
+        }
+    }
+
+    fun onLoadProfessionalDefaults() {
+        viewModelScope.launch {
+            productRepository.loadProfessionalDefaults()
+            _snackbarMessages.emit("Loaded 12 professional fruit items.")
+        }
     }
 
     fun onRestoreFromCloud(context: Context) {

@@ -103,23 +103,56 @@ class ProductRepository(private val productDao: ProductDao) {
         Result.success(Unit)
     }
 
+    companion object {
+        val PROFESSIONAL_DEFAULT_PRODUCTS = listOf(
+            Product(name = "Apple", price = BigDecimal("160"), unit = ProductUnit.KG),
+            Product(name = "Banana", price = BigDecimal("50"), unit = ProductUnit.KG),
+            Product(name = "Orange", price = BigDecimal("100"), unit = ProductUnit.KG),
+            Product(name = "Pomegranate", price = BigDecimal("150"), unit = ProductUnit.KG),
+            Product(name = "Grapes", price = BigDecimal("90"), unit = ProductUnit.KG),
+            Product(name = "Papaya", price = BigDecimal("50"), unit = ProductUnit.KG),
+            Product(name = "Watermelon", price = BigDecimal("35"), unit = ProductUnit.KG),
+            Product(name = "Mango", price = BigDecimal("180"), unit = ProductUnit.KG),
+            Product(name = "Pineapple", price = BigDecimal("60"), unit = ProductUnit.PIECE),
+            Product(name = "Guava", price = BigDecimal("60"), unit = ProductUnit.KG),
+            Product(name = "Sweet Lime (Mosambi)", price = BigDecimal("80"), unit = ProductUnit.KG),
+            Product(name = "Kiwi", price = BigDecimal("35"), unit = ProductUnit.PIECE)
+        )
+    }
+
+    suspend fun clearAllProducts() = withContext(Dispatchers.IO) {
+        productDao.deleteAllProducts()
+        triggerCloudSync()
+    }
+
+    suspend fun loadProfessionalDefaults() = withContext(Dispatchers.IO) {
+        productDao.deleteAllProducts()
+        productDao.insertAll(PROFESSIONAL_DEFAULT_PRODUCTS)
+        triggerCloudSync()
+    }
+
     suspend fun ensureDefaultProducts() = withContext(Dispatchers.IO) {
-        if (productDao.getProductCount() == 0) {
-            val defaultProducts = listOf(
-                Product(name = "Papali", price = BigDecimal("70"), unit = ProductUnit.KG),
-                Product(name = "Manja / Poovam pazham", price = BigDecimal("80"), unit = ProductUnit.KG),
-                Product(name = "Pacha palam", price = BigDecimal("40"), unit = ProductUnit.KG),
-                Product(name = "Orange", price = BigDecimal("220"), unit = ProductUnit.KG),
-                Product(name = "Madhulai", price = BigDecimal("120"), unit = ProductUnit.KG),
-                Product(name = "Sevvazai", price = BigDecimal("120"), unit = ProductUnit.KG),
-                Product(name = "Malapazham", price = BigDecimal("160"), unit = ProductUnit.KG),
-                Product(name = "Small apple", price = BigDecimal("100"), unit = ProductUnit.KG),
-                Product(name = "Big apple", price = BigDecimal("300"), unit = ProductUnit.KG),
-                Product(name = "Box Apple", price = BigDecimal("200"), unit = ProductUnit.KG),
-                Product(name = "Yelaki", price = BigDecimal("120"), unit = ProductUnit.KG),
-                Product(name = "Karupurvalli", price = BigDecimal("80"), unit = ProductUnit.KG)
-            )
-            productDao.insertAll(defaultProducts)
+        val existing = productDao.getAllProductsSync()
+        // If legacy informal products exist (e.g. Small apple, Pacha palam), upgrade to professional items
+        val hasLegacyInformal = existing.any { 
+            it.name.contains("Small apple", ignoreCase = true) || 
+            it.name.contains("Pacha palam", ignoreCase = true) ||
+            it.name.contains("Manja", ignoreCase = true) ||
+            it.name.contains("Sevvazai", ignoreCase = true)
+        }
+
+        if (hasLegacyInformal) {
+            productDao.deleteAllProducts()
+            productDao.insertAll(PROFESSIONAL_DEFAULT_PRODUCTS)
+            triggerCloudSync()
+        } else if (existing.isEmpty()) {
+            val prefs = com.fruitbilling.app.FruitBillingApp.instance.getSharedPreferences("catalog_prefs", android.content.Context.MODE_PRIVATE)
+            val alreadyInitialized = prefs.getBoolean("has_initialized_catalog_v103", false)
+            if (!alreadyInitialized) {
+                prefs.edit().putBoolean("has_initialized_catalog_v103", true).apply()
+                productDao.insertAll(PROFESSIONAL_DEFAULT_PRODUCTS)
+                triggerCloudSync()
+            }
         }
     }
 }
