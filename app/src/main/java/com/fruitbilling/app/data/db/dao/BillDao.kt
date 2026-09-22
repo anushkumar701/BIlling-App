@@ -104,6 +104,9 @@ interface BillDao {
 
     @Query("SELECT id FROM bills WHERE billNumber = :billNumber LIMIT 1")
     suspend fun getBillIdByBillNumber(billNumber: Int): Long?
+
+    @Query("DELETE FROM bills WHERE id = :id")
+    suspend fun deleteBillById(id: Long): Int
 }
 
 

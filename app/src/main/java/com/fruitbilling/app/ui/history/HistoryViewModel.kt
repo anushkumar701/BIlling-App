@@ -140,6 +140,13 @@ class HistoryViewModel(
             billRepository.updateCompletedBillPaymentMethod(billId, method)
         }
     }
+
+    fun onDeleteBill(billId: Long) {
+        viewModelScope.launch {
+            billRepository.deleteBill(billId)
+            _uiState.value = _uiState.value.copy(selectedBillForDetail = null)
+        }
+    }
 }
 
 class HistoryViewModelFactory(

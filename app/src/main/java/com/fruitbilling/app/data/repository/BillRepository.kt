@@ -490,4 +490,19 @@ class BillRepository(
             Result.success(completedBill)
         }
     }
+
+    suspend fun deleteBill(id: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        val rows = billDao.deleteBillById(id)
+        if (rows > 0) {
+            try {
+                com.fruitbilling.app.data.backup.CloudBackupManager.triggerAsyncCloudSync(
+                    context = com.fruitbilling.app.FruitBillingApp.instance,
+                    database = database
+                )
+            } catch (_: Exception) {}
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalArgumentException("Bill not found"))
+        }
+    }
 }

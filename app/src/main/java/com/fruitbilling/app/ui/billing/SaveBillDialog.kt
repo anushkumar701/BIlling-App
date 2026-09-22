@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -91,7 +93,12 @@ fun SaveBillDialog(
     val items = billWithItems.items
     val calculatedTotal = bill.calculatedTotal
 
-    var finalPriceText by remember { mutableStateOf(initialFinalPrice) }
+    var finalPriceText by remember {
+        mutableStateOf(
+            if (initialFinalPrice.isNotBlank()) initialFinalPrice
+            else calculatedTotal.stripTrailingZeros().toPlainString()
+        )
+    }
     var selectedPayment by remember { mutableStateOf(initialPaymentMethod) }
     var cashTenderedInput by remember { mutableStateOf("") }
 
@@ -143,7 +150,9 @@ fun SaveBillDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // 1. Scrollable itemized product list with 1-tap delete
@@ -364,7 +373,7 @@ fun SaveBillDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "📱 UPI / GPay",
+                                text = "📱 UPI",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = if (isUpiSelected) FontWeight.Bold else FontWeight.Medium,
                                     color = if (isUpiSelected) UpiBlue else MaterialTheme.colorScheme.onSurface
@@ -403,18 +412,12 @@ fun SaveBillDialog(
                                 )
                             )
 
-                            // Quick Tender Note Chips
+                            // Quick Tender Note Chips (Dynamic based on bill amount)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                val exactVal = effectiveAmount.setScale(0, RoundingMode.CEILING).toPlainString()
-                                val chips = listOf(
-                                    "Exact" to exactVal,
-                                    "₹100" to "100",
-                                    "₹200" to "200",
-                                    "₹500" to "500"
-                                )
+                                val chips = MoneyUtils.getCashTenderSuggestions(effectiveAmount)
                                 chips.forEach { (label, value) ->
                                     val isSelected = cashTenderedInput == value
                                     Surface(

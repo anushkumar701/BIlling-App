@@ -165,6 +165,7 @@ fun HistoryScreen(
                 onUpdatePaymentMethod = { method ->
                     viewModel.onUpdatePaymentMethod(selectedBill.bill.id, method)
                 },
+                onDeleteBill = viewModel::onDeleteBill,
                 onDismiss = viewModel::onDismissDetail
             )
         }
@@ -577,7 +578,7 @@ fun HistoryBillRow(
                             modifier = Modifier.padding(horizontal = 10.dp)
                         ) {
                             Text(
-                                text = "📱 UPI / GPay",
+                                text = "📱 UPI",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = UpiBlue

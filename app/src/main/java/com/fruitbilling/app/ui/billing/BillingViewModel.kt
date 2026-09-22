@@ -402,31 +402,64 @@ class BillingViewModel(
     }
 
     fun onPromptEditItem(item: BillItem) {
-        val eval = CalculatorEngine.evaluate(item.expression).getOrDefault(item.calculatedAmount)
-        _uiState.value = _uiState.value.copy(
-            editingItem = item,
-            editInputText = item.expression,
-            editCalculatedAmount = eval,
-            isEditInputValid = true,
-            editErrorMessage = null
-        )
-    }
-
-    fun onEditInputChanged(text: String) {
-        val result = CalculatorEngine.evaluate(text)
-        if (result.isSuccess) {
+        if (!item.productNameSnapshot.isNullOrBlank()) {
+            val qtyStr = item.quantityOrWeight?.stripTrailingZeros()?.toPlainString() ?: "1"
             _uiState.value = _uiState.value.copy(
-                editInputText = text,
-                editCalculatedAmount = result.getOrThrow(),
+                editingItem = item,
+                editInputText = qtyStr,
+                editCalculatedAmount = item.calculatedAmount,
                 isEditInputValid = true,
                 editErrorMessage = null
             )
         } else {
+            val eval = CalculatorEngine.evaluate(item.expression).getOrDefault(item.calculatedAmount)
             _uiState.value = _uiState.value.copy(
-                editInputText = text,
-                isEditInputValid = false,
-                editErrorMessage = result.exceptionOrNull()?.message
+                editingItem = item,
+                editInputText = item.expression,
+                editCalculatedAmount = eval,
+                isEditInputValid = true,
+                editErrorMessage = null
             )
+        }
+    }
+
+    fun onEditInputChanged(text: String) {
+        val currentItem = _uiState.value.editingItem
+        if (currentItem != null && !currentItem.productNameSnapshot.isNullOrBlank()) {
+            val trimmed = text.trim()
+            val parsedQty = trimmed.toBigDecimalOrNull()
+            if (parsedQty != null && parsedQty > BigDecimal.ZERO) {
+                val unitPrice = currentItem.unitPriceSnapshot ?: BigDecimal.ZERO
+                val newAmount = (unitPrice * parsedQty).setScale(2, RoundingMode.HALF_UP)
+                _uiState.value = _uiState.value.copy(
+                    editInputText = text,
+                    editCalculatedAmount = newAmount,
+                    isEditInputValid = true,
+                    editErrorMessage = null
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    editInputText = text,
+                    isEditInputValid = false,
+                    editErrorMessage = "Enter a valid quantity greater than 0"
+                )
+            }
+        } else {
+            val result = CalculatorEngine.evaluate(text)
+            if (result.isSuccess) {
+                _uiState.value = _uiState.value.copy(
+                    editInputText = text,
+                    editCalculatedAmount = result.getOrThrow(),
+                    isEditInputValid = true,
+                    editErrorMessage = null
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    editInputText = text,
+                    isEditInputValid = false,
+                    editErrorMessage = result.exceptionOrNull()?.message
+                )
+            }
         }
     }
 
@@ -436,17 +469,35 @@ class BillingViewModel(
         if (!state.isEditInputValid) return
 
         viewModelScope.launch {
-            billRepository.updateCalculation(
-                item = item,
-                newExpression = state.editInputText.trim(),
-                newAmount = state.editCalculatedAmount
-            )
+            if (!item.productNameSnapshot.isNullOrBlank()) {
+                val qty = state.editInputText.trim().toBigDecimalOrNull() ?: BigDecimal.ONE
+                val qtyStr = if (item.unit == ProductUnit.KG) {
+                    CalculatorEngine.formatWeight(qty)
+                } else {
+                    qty.stripTrailingZeros().toPlainString()
+                }
+                val priceStr = (item.unitPriceSnapshot ?: BigDecimal.ZERO).stripTrailingZeros().toPlainString()
+                val newExpression = "$priceStr × $qtyStr"
+                billRepository.updateCalculation(
+                    item = item,
+                    newExpression = newExpression,
+                    newAmount = state.editCalculatedAmount,
+                    newQuantityOrWeight = qty,
+                    newNormalizedWeight = if (item.unit == ProductUnit.KG) qty else null
+                )
+            } else {
+                billRepository.updateCalculation(
+                    item = item,
+                    newExpression = state.editInputText.trim(),
+                    newAmount = state.editCalculatedAmount
+                )
+            }
             _uiState.value = _uiState.value.copy(
                 editingItem = null,
                 editInputText = "",
                 editErrorMessage = null
             )
-            _snackbarMessages.emit("Calculation updated")
+            _snackbarMessages.emit("Item updated")
         }
     }
 

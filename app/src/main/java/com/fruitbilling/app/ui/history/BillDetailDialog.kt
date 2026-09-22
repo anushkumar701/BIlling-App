@@ -17,8 +17,15 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -36,10 +43,12 @@ import com.fruitbilling.app.util.MoneyUtils
 fun BillDetailDialog(
     billWithItems: BillWithItems,
     onUpdatePaymentMethod: (PaymentMethod?) -> Unit,
+    onDeleteBill: ((Long) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val bill = billWithItems.bill
     val context = LocalContext.current
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     fun shareReceipt() {
         val receiptText = com.fruitbilling.app.util.ReceiptUtils.generateReceiptText(billWithItems)
@@ -86,7 +95,9 @@ fun BillDetailDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 // Timestamp
@@ -216,7 +227,7 @@ fun BillDetailDialog(
                         )
 
                         DetailPaymentChip(
-                            label = "📱 UPI / GPay",
+                            label = "📱 UPI",
                             isSelected = bill.paymentMethod == PaymentMethod.UPI,
                             activeColor = UpiBlue,
                             onClick = {
@@ -238,11 +249,57 @@ fun BillDetailDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = ::shareReceipt) {
-                Text("📤 Share Receipt", fontWeight = FontWeight.SemiBold)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (onDeleteBill != null) {
+                    TextButton(
+                        onClick = { showDeleteConfirmDialog = true },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("🗑️ Delete", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                TextButton(onClick = ::shareReceipt) {
+                    Text("📤 Share", fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     )
+
+    if (showDeleteConfirmDialog && onDeleteBill != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = {
+                Text(
+                    text = "Delete Bill ${bill.formattedBillNumber}?",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error
+                )
+            },
+            text = {
+                Text("Are you sure you want to delete this bill? This action cannot be undone and will remove it from sales history.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmDialog = false
+                        onDeleteBill(bill.id)
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Bill", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable

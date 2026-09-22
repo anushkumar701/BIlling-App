@@ -43,4 +43,46 @@ object MoneyUtils {
             currencyFormat.format(scaled)
         }
     }
+
+    /**
+     * Generates dynamic, context-aware cash tender note suggestions based on bill total.
+     * Never suggests amounts lower than the bill amount.
+     * E.g., for ₹760 bill -> [Exact (760), ₹800, ₹1000, ₹2000]
+     */
+    fun getCashTenderSuggestions(amount: BigDecimal): List<Pair<String, String>> {
+        val total = amount.setScale(0, RoundingMode.CEILING).toInt()
+        if (total <= 0) return listOf("Exact" to "0")
+
+        val suggestions = mutableListOf<Pair<String, String>>()
+        suggestions.add("Exact" to total.toString())
+
+        val candidates = sortedSetOf<Int>()
+
+        if (total % 10 != 0) {
+            candidates.add(((total / 10) + 1) * 10)
+        }
+        if (total % 50 != 0) {
+            candidates.add(((total / 50) + 1) * 50)
+        }
+        if (total % 100 != 0) {
+            candidates.add(((total / 100) + 1) * 100)
+        }
+        if (total % 500 != 0) {
+            candidates.add(((total / 500) + 1) * 500)
+        }
+
+        val currencyNotes = listOf(50, 100, 200, 500, 1000, 2000)
+        for (note in currencyNotes) {
+            if (note > total) {
+                candidates.add(note)
+            }
+        }
+
+        val validCandidates = candidates.filter { it > total }.take(3)
+        for (cand in validCandidates) {
+            suggestions.add("₹$cand" to cand.toString())
+        }
+
+        return suggestions
+    }
 }
