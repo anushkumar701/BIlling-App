@@ -32,27 +32,29 @@ object CsvExportManager {
             val exportDir = File(context.cacheDir, "csv_exports")
             if (!exportDir.exists()) exportDir.mkdirs()
 
-            val csvFile = File(exportDir, "FruitBilling_${reportTitle.replace(" ", "_")}_$fileTimestamp.csv")
+            val csvFile = File(exportDir, "RetailBilling_${reportTitle.replace(" ", "_")}_$fileTimestamp.csv")
 
             var totalCalculated = BigDecimal.ZERO
             var totalFinal = BigDecimal.ZERO
             var cashTotal = BigDecimal.ZERO
             var upiTotal = BigDecimal.ZERO
+            var pendingTotal = BigDecimal.ZERO
 
             FileWriter(csvFile).use { writer ->
                 // Title Header
-                writer.append("Fruit Billing App - $reportTitle\n")
+                writer.append("Retail Billing POS - $reportTitle\n")
                 writer.append("Exported On,${SimpleDateFormat("dd MMM yyyy hh:mm a", Locale.getDefault()).format(Date())}\n")
                 writer.append("Total Records,${bills.size}\n\n")
 
                 // Table Column Headers
-                writer.append("Bill No,Date,Time,Calculated Amount (INR),Final Amount (INR),Discount / Adj (INR),Payment Mode,Items Breakdown,Status\n")
+                writer.append("Bill No,Date,Time,Customer,Calculated Amount (INR),Final Amount (INR),Discount / Adj (INR),Payment Mode,Items Breakdown,Status\n")
 
                 for (item in bills) {
                     val bill = item.bill
                     val compTime = bill.completedAt ?: bill.createdAt
                     val dateStr = dateFormat.format(Date(compTime))
                     val timeStr = timeFormat.format(Date(compTime))
+                    val custName = (bill.customerName ?: "").replace("\"", "\"\"")
 
                     val calcAmt = bill.calculatedTotal
                     val finalAmt = bill.effectiveChargedAmount
@@ -66,6 +68,7 @@ object CsvExportManager {
                     when (bill.paymentMethod) {
                         PaymentMethod.CASH -> cashTotal = cashTotal.add(finalAmt)
                         PaymentMethod.UPI -> upiTotal = upiTotal.add(finalAmt)
+                        PaymentMethod.PENDING -> pendingTotal = pendingTotal.add(finalAmt)
                         null -> {}
                     }
 
@@ -76,11 +79,17 @@ object CsvExportManager {
                         if (name.isNotBlank()) "$name ($prettyExpr = ₹${bi.calculatedAmount})" else "$prettyExpr = ₹${bi.calculatedAmount}"
                     }.replace("\"", "\"\"")
 
-                    val payLabel = bill.paymentMethod?.label ?: "Unspecified"
+                    val payLabel = when (bill.paymentMethod) {
+                        PaymentMethod.CASH -> "Cash"
+                        PaymentMethod.UPI -> "UPI"
+                        PaymentMethod.PENDING -> "Pending"
+                        null -> "Unspecified"
+                    }
 
                     writer.append("\"${bill.formattedBillNumber}\",")
                     writer.append("\"$dateStr\",")
                     writer.append("\"$timeStr\",")
+                    writer.append("\"$custName\",")
                     writer.append("\"${calcAmt.toPlainString()}\",")
                     writer.append("\"${finalAmt.toPlainString()}\",")
                     writer.append("\"${discountAmt.toPlainString()}\",")
@@ -91,11 +100,12 @@ object CsvExportManager {
 
                 // Summary Footer
                 writer.append("\n")
-                writer.append("SUMMARY TOTALS,,,,,,,,\n")
-                writer.append("Total Bills,${bills.size},,,,,,\n")
-                writer.append("Total Sales (INR),${totalFinal.toPlainString()},,,,,,\n")
-                writer.append("Cash in Drawer (INR),${cashTotal.toPlainString()},,,,,,\n")
-                writer.append("UPI / Bank (INR),${upiTotal.toPlainString()},,,,,,\n")
+                writer.append("SUMMARY TOTALS,,,,,,,,,\n")
+                writer.append("Total Bills,${bills.size},,,,,,,\n")
+                writer.append("Total Sales (INR),${totalFinal.toPlainString()},,,,,,,\n")
+                writer.append("Cash in Drawer (INR),${cashTotal.toPlainString()},,,,,,,\n")
+                writer.append("UPI / Bank (INR),${upiTotal.toPlainString()},,,,,,,\n")
+                writer.append("Pending / Pay Later (INR),${pendingTotal.toPlainString()},,,,,,,\n")
             }
 
             Result.success(csvFile)
@@ -117,8 +127,8 @@ object CsvExportManager {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/csv"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "Fruit Billing Sales Report")
-            putExtra(Intent.EXTRA_TEXT, "Here is the sales report export from Fruit Billing App.")
+            putExtra(Intent.EXTRA_SUBJECT, "Retail Billing Sales Report")
+            putExtra(Intent.EXTRA_TEXT, "Here is the sales report export from Retail Billing POS.")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 

@@ -177,6 +177,7 @@ object CloudBackupManager {
                         put("calculatedTotal", b.calculatedTotal.toPlainString())
                         b.finalAmount?.let { put("finalAmount", it.toPlainString()) }
                         b.paymentMethod?.let { put("paymentMethod", it.name) }
+                        b.customerName?.let { put("customerName", it) }
                         put("createdAt", b.createdAt)
                         b.completedAt?.let { put("completedAt", it) }
 
@@ -491,6 +492,9 @@ object CloudBackupManager {
                                 PaymentMethod.valueOf(bObj.getString("paymentMethod"))
                             } catch (_: Exception) { null }
                         } else null
+                        val customerName = if (bObj.has("customerName") && !bObj.isNull("customerName")) {
+                            bObj.getString("customerName")
+                        } else null
                         val completedAt = if (bObj.has("completedAt") && !bObj.isNull("completedAt")) {
                             bObj.getLong("completedAt")
                         } else null
@@ -501,6 +505,7 @@ object CloudBackupManager {
                             calculatedTotal = calculatedTotal,
                             finalAmount = finalAmount,
                             paymentMethod = paymentMethod,
+                            customerName = customerName,
                             createdAt = createdAt,
                             completedAt = completedAt
                         )

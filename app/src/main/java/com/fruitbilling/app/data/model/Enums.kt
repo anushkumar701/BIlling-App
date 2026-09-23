@@ -13,7 +13,8 @@ enum class BillStatus {
 
 enum class PaymentMethod(val label: String) {
     CASH("Cash"),
-    UPI("UPI")
+    UPI("UPI"),
+    PENDING("Pending")
 }
 
 enum class BillingMode(val displayName: String) {

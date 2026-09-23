@@ -51,7 +51,7 @@ data class HistoryUiState(
         get() {
             val byPayment = when (selectedFilter) {
                 PaymentFilter.ALL -> completedBills
-                PaymentFilter.PENDING -> completedBills.filter { it.bill.paymentMethod == null }
+                PaymentFilter.PENDING -> completedBills.filter { it.bill.paymentMethod == PaymentMethod.PENDING || it.bill.paymentMethod == null }
                 PaymentFilter.CASH -> completedBills.filter { it.bill.paymentMethod == PaymentMethod.CASH }
                 PaymentFilter.UPI -> completedBills.filter { it.bill.paymentMethod == PaymentMethod.UPI }
             }
@@ -60,13 +60,14 @@ data class HistoryUiState(
             return byPayment.filter { billWithItems ->
                 billWithItems.bill.billNumber.toString().contains(q) ||
                 billWithItems.bill.formattedBillNumber.lowercase().contains(q) ||
+                (billWithItems.bill.customerName?.lowercase()?.contains(q) == true) ||
                 (billWithItems.bill.finalAmount?.toPlainString()?.contains(q) == true) ||
                 (billWithItems.bill.calculatedTotal.toPlainString().contains(q)) ||
                 // Search by payment method name
                 (billWithItems.bill.paymentMethod?.label?.lowercase()?.contains(q) == true) ||
                 (q == "cash" && billWithItems.bill.paymentMethod == PaymentMethod.CASH) ||
                 (q == "upi" && billWithItems.bill.paymentMethod == PaymentMethod.UPI) ||
-                (q == "pending" && billWithItems.bill.paymentMethod == null) ||
+                (q == "pending" && (billWithItems.bill.paymentMethod == PaymentMethod.PENDING || billWithItems.bill.paymentMethod == null)) ||
                 billWithItems.items.any { item ->
                     item.productNameSnapshot?.lowercase()?.contains(q) == true ||
                     item.expression.lowercase().contains(q) ||
@@ -76,7 +77,7 @@ data class HistoryUiState(
         }
 
     val pendingCount: Int
-        get() = completedBills.count { it.bill.paymentMethod == null }
+        get() = completedBills.count { it.bill.paymentMethod == PaymentMethod.PENDING || it.bill.paymentMethod == null }
 
     val cashCount: Int
         get() = completedBills.count { it.bill.paymentMethod == PaymentMethod.CASH }
@@ -185,14 +186,16 @@ class HistoryViewModel(
         billId: Long,
         items: List<BillItem>,
         finalAmount: BigDecimal?,
-        paymentMethod: PaymentMethod?
+        paymentMethod: PaymentMethod?,
+        customerName: String? = null
     ) {
         viewModelScope.launch {
             val result = billRepository.updateCompletedBill(
                 billId = billId,
                 newItems = items,
                 finalAmount = finalAmount,
-                paymentMethod = paymentMethod
+                paymentMethod = paymentMethod,
+                customerName = customerName
             )
             result.onSuccess { bill ->
                 _uiState.value = _uiState.value.copy(editingBill = null)

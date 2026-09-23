@@ -87,7 +87,7 @@ class BillRepository(
                 when (bill.paymentMethod) {
                     PaymentMethod.CASH -> cash = cash.add(amount)
                     PaymentMethod.UPI -> upi = upi.add(amount)
-                    null -> {
+                    PaymentMethod.PENDING, null -> {
                         unspecified = unspecified.add(amount)
                         unspecifiedCount++
                     }
@@ -152,7 +152,7 @@ class BillRepository(
                 when (bill.paymentMethod) {
                     PaymentMethod.CASH -> monthCash = monthCash.add(amount)
                     PaymentMethod.UPI -> monthUpi = monthUpi.add(amount)
-                    null -> {}
+                    PaymentMethod.PENDING, null -> {}
                 }
             }
 
@@ -172,7 +172,7 @@ class BillRepository(
                     when (b.paymentMethod) {
                         PaymentMethod.CASH -> dayCash = dayCash.add(amt)
                         PaymentMethod.UPI -> dayUpi = dayUpi.add(amt)
-                        null -> {}
+                        PaymentMethod.PENDING, null -> {}
                     }
                 }
                 DaySalesSummary(
@@ -482,7 +482,8 @@ class BillRepository(
     suspend fun completeBill(
         billId: Long,
         finalAmount: BigDecimal?,
-        paymentMethod: PaymentMethod?
+        paymentMethod: PaymentMethod?,
+        customerName: String? = null
     ): Result<Bill> = withContext(Dispatchers.IO) {
         database.withTransaction {
             val bill = billDao.getBillById(billId)
@@ -502,6 +503,7 @@ class BillRepository(
                 status = BillStatus.COMPLETED,
                 finalAmount = finalAmount?.setScale(2, RoundingMode.HALF_UP),
                 paymentMethod = paymentMethod,
+                customerName = customerName?.trim()?.ifBlank { null },
                 completedAt = System.currentTimeMillis()
             )
 
@@ -527,14 +529,15 @@ class BillRepository(
 
     /**
      * Updates a completed bill: replaces all items, recalculates total,
-     * and optionally updates final price and payment method.
+     * and optionally updates final price, payment method, and customer name.
      * The bill ID and bill number remain unchanged.
      */
     suspend fun updateCompletedBill(
         billId: Long,
         newItems: List<BillItem>,
         finalAmount: BigDecimal?,
-        paymentMethod: PaymentMethod?
+        paymentMethod: PaymentMethod?,
+        customerName: String? = null
     ): Result<Bill> = withContext(Dispatchers.IO) {
         database.withTransaction {
             val bill = billDao.getBillById(billId)
@@ -558,7 +561,8 @@ class BillRepository(
             val updatedBill = bill.copy(
                 calculatedTotal = newTotal,
                 finalAmount = finalAmount?.setScale(2, RoundingMode.HALF_UP),
-                paymentMethod = paymentMethod
+                paymentMethod = paymentMethod,
+                customerName = customerName?.trim()?.ifBlank { null }
             )
             billDao.updateBill(updatedBill)
 

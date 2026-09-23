@@ -22,11 +22,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.fruitbilling.app.data.model.BillItem
 import com.fruitbilling.app.data.model.ProductUnit
@@ -46,17 +52,27 @@ fun EditItemDialog(
 ) {
     val isProduct = !item.productNameSnapshot.isNullOrBlank()
 
+    // Smart cursor positioning and editing for weight units (e.g. "500 × 700g")
+    var textFieldValue by remember(inputText) {
+        val initialSelection = if (!isProduct) {
+            when {
+                inputText.endsWith("kg", ignoreCase = true) -> TextRange(inputText.length - 2)
+                inputText.endsWith("g", ignoreCase = true) -> TextRange(inputText.length - 1)
+                else -> TextRange(inputText.length)
+            }
+        } else {
+            TextRange(inputText.length)
+        }
+        mutableStateOf(TextFieldValue(text = inputText, selection = initialSelection))
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Column {
                 Text(
-                    text = if (isProduct) {
-                        "Edit ${item.productNameSnapshot}"
-                    } else {
-                        "Edit Calculation"
-                    },
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    text = "Edit ${if (isProduct) item.productNameSnapshot else "Item"}",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 if (isProduct && item.unitPriceSnapshot != null) {
                     Text(
@@ -110,14 +126,69 @@ fun EditItemDialog(
                 }
 
                 OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { input ->
+                    value = textFieldValue,
+                    onValueChange = { newTfv ->
                         if (isProduct) {
+                            val input = newTfv.text
                             if (input.isEmpty() || input.matches(Regex("""^\d*\.?\d*$"""))) {
+                                textFieldValue = newTfv
                                 onInputChanged(input)
                             }
                         } else {
-                            onInputChanged(input)
+                            val oldText = textFieldValue.text
+                            val newText = newTfv.text
+
+                            // Smart weight backspace: when user presses erase on "...700g", erase the digit before 'g'
+                            if (oldText.endsWith("g", ignoreCase = true) && !oldText.endsWith("kg", ignoreCase = true)) {
+                                if (newText == oldText.dropLast(1)) {
+                                    // User erased 'g' at the end -> erase the digit before 'g' instead and preserve 'g'
+                                    val prefix = oldText.dropLast(1)
+                                    val newPrefix = prefix.dropLast(1)
+                                    val transformed = newPrefix + "g"
+                                    val newPos = newPrefix.length.coerceAtLeast(0)
+                                    val adjusted = TextFieldValue(text = transformed, selection = TextRange(newPos))
+                                    textFieldValue = adjusted
+                                    onInputChanged(transformed)
+                                    return@OutlinedTextField
+                                }
+                                // If user typed a digit after 'g' (e.g. "...70g5"), move digit before 'g' -> "...705g"
+                                val match = Regex("""^(.*)g(\d+)$""", RegexOption.IGNORE_CASE).find(newText)
+                                if (match != null) {
+                                    val before = match.groupValues[1]
+                                    val digits = match.groupValues[2]
+                                    val transformed = "$before$digits" + "g"
+                                    val newPos = (before.length + digits.length).coerceAtLeast(0)
+                                    val adjusted = TextFieldValue(text = transformed, selection = TextRange(newPos))
+                                    textFieldValue = adjusted
+                                    onInputChanged(transformed)
+                                    return@OutlinedTextField
+                                }
+                            } else if (oldText.endsWith("kg", ignoreCase = true)) {
+                                if (newText == oldText.dropLast(1) || newText == oldText.dropLast(2)) {
+                                    val prefix = oldText.dropLast(2)
+                                    val newPrefix = prefix.dropLast(1)
+                                    val transformed = newPrefix + "kg"
+                                    val newPos = newPrefix.length.coerceAtLeast(0)
+                                    val adjusted = TextFieldValue(text = transformed, selection = TextRange(newPos))
+                                    textFieldValue = adjusted
+                                    onInputChanged(transformed)
+                                    return@OutlinedTextField
+                                }
+                                val match = Regex("""^(.*)kg(\d+)$""", RegexOption.IGNORE_CASE).find(newText)
+                                if (match != null) {
+                                    val before = match.groupValues[1]
+                                    val digits = match.groupValues[2]
+                                    val transformed = "$before$digits" + "kg"
+                                    val newPos = (before.length + digits.length).coerceAtLeast(0)
+                                    val adjusted = TextFieldValue(text = transformed, selection = TextRange(newPos))
+                                    textFieldValue = adjusted
+                                    onInputChanged(transformed)
+                                    return@OutlinedTextField
+                                }
+                            }
+
+                            textFieldValue = newTfv
+                            onInputChanged(newText)
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),

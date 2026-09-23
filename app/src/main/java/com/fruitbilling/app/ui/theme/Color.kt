@@ -37,5 +37,7 @@ val OutlineDark = Color(0xFF8C9388)
 // Status and accent colors
 val CashGreen = Color(0xFF2E7D32)
 val UpiBlue = Color(0xFF1565C0)
+val PendingOrange = Color(0xFFE65100)
 val DeleteRed = Color(0xFFD32F2F)
 val PriceTagColor = Color(0xFF2E7D32)
+

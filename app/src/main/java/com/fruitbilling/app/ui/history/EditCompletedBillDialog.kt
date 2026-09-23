@@ -53,6 +53,7 @@ import com.fruitbilling.app.data.model.BillWithItems
 import com.fruitbilling.app.data.model.PaymentMethod
 import com.fruitbilling.app.data.model.ProductUnit
 import com.fruitbilling.app.ui.theme.CashGreen
+import com.fruitbilling.app.ui.theme.PendingOrange
 import com.fruitbilling.app.ui.theme.UpiBlue
 import com.fruitbilling.app.util.CalculatorEngine
 import com.fruitbilling.app.util.MoneyUtils
@@ -62,18 +63,19 @@ import java.math.RoundingMode
 /**
  * Full-screen-style dialog for editing a completed bill.
  * Allows: editing item quantities, removing items, adding new freeform items,
- * changing payment method, adjusting final price.
+ * changing payment method, adjusting final price, and updating customer name.
  * The bill number (#105) stays unchanged.
  */
 @Composable
 fun EditCompletedBillDialog(
     billWithItems: BillWithItems,
-    onSave: (billId: Long, items: List<BillItem>, finalAmount: BigDecimal?, paymentMethod: PaymentMethod?) -> Unit,
+    onSave: (billId: Long, items: List<BillItem>, finalAmount: BigDecimal?, paymentMethod: PaymentMethod?, customerName: String?) -> Unit,
     onDismiss: () -> Unit
 ) {
     val bill = billWithItems.bill
     val editableItems = remember { mutableStateListOf(*billWithItems.items.toTypedArray()) }
     var selectedPayment by remember { mutableStateOf(bill.paymentMethod) }
+    var customerNameInput by remember { mutableStateOf(bill.customerName ?: "") }
     var showAddItemDialog by remember { mutableStateOf(false) }
     var editingItemIndex by remember { mutableStateOf(-1) }
     var editingItemQtyText by remember { mutableStateOf("") }
@@ -280,7 +282,7 @@ fun EditCompletedBillDialog(
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     EditPaymentChip(
                         label = "💵 Cash",
@@ -302,6 +304,29 @@ fun EditCompletedBillDialog(
                         },
                         modifier = Modifier.weight(1f)
                     )
+                    EditPaymentChip(
+                        label = "⏳ Pending",
+                        isSelected = selectedPayment == PaymentMethod.PENDING,
+                        activeColor = PendingOrange,
+                        onClick = {
+                            selectedPayment = if (selectedPayment == PaymentMethod.PENDING) null
+                            else PaymentMethod.PENDING
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Customer info for Pending / Pay-Later
+                if (selectedPayment == PaymentMethod.PENDING) {
+                    OutlinedTextField(
+                        value = customerNameInput,
+                        onValueChange = { customerNameInput = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Customer Name / Phone (Optional)") },
+                        placeholder = { Text("e.g. Ramesh, Stall #4") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(8.dp)
+                    )
                 }
             }
         },
@@ -314,7 +339,7 @@ fun EditCompletedBillDialog(
                         val finalAmt = if (parsedFinal != null &&
                             parsedFinal.setScale(2, RoundingMode.HALF_UP).compareTo(calculatedTotal) != 0
                         ) parsedFinal else null
-                        onSave(bill.id, editableItems.toList(), finalAmt, selectedPayment)
+                        onSave(bill.id, editableItems.toList(), finalAmt, selectedPayment, customerNameInput.trim().ifEmpty { null })
                     }
                 },
                 enabled = editableItems.isNotEmpty()

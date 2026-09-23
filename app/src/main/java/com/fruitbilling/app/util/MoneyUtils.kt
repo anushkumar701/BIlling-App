@@ -47,14 +47,15 @@ object MoneyUtils {
     /**
      * Generates dynamic, context-aware cash tender note suggestions based on bill total.
      * Never suggests amounts lower than the bill amount.
-     * E.g., for ₹760 bill -> [Exact (760), ₹800, ₹1000, ₹2000]
+     * Displays actual money amounts (e.g., [₹760, ₹800, ₹1000, ₹2000]).
      */
     fun getCashTenderSuggestions(amount: BigDecimal): List<Pair<String, String>> {
         val total = amount.setScale(0, RoundingMode.CEILING).toInt()
-        if (total <= 0) return listOf("Exact" to "0")
+        if (total <= 0) return listOf("₹0" to "0")
 
         val suggestions = mutableListOf<Pair<String, String>>()
-        suggestions.add("Exact" to total.toString())
+        // Show exact money amount instead of "Exact" text (§human counter speed)
+        suggestions.add("₹$total" to total.toString())
 
         val candidates = sortedSetOf<Int>()
 
@@ -84,5 +85,66 @@ object MoneyUtils {
         }
 
         return suggestions
+    }
+
+    /**
+     * Generates smart rounded final price / discount suggestions.
+     * Cashiers often round down slightly to close bills quickly (e.g. ₹1304 -> ₹1300 or ₹1290).
+     * Returns list of Pair(DisplayLabel, ValueToSet).
+     */
+    fun getFinalPriceSuggestions(amount: BigDecimal): List<Pair<String, String>> {
+        val scaled = amount.setScale(2, RoundingMode.HALF_UP)
+        if (scaled <= BigDecimal.ZERO) return emptyList()
+
+        val suggestions = mutableListOf<Pair<String, String>>()
+        val totalInt = scaled.toInt()
+
+        // 1. Exact amount
+        val exactStr = if (scaled.remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) == 0) {
+            totalInt.toString()
+        } else {
+            scaled.stripTrailingZeros().toPlainString()
+        }
+        suggestions.add("₹$exactStr (Exact)" to exactStr)
+
+        val seenValues = mutableSetOf<String>()
+        seenValues.add(exactStr)
+
+        // Helper to add suggestion
+        fun addSuggestion(targetVal: Int) {
+            if (targetVal > 0 && targetVal < scaled.toDouble()) {
+                val str = targetVal.toString()
+                if (seenValues.add(str)) {
+                    val discount = scaled.subtract(BigDecimal(targetVal))
+                    val discountStr = if (discount.remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) == 0) {
+                        "₹${discount.toInt()}"
+                    } else {
+                        "₹${discount.stripTrailingZeros().toPlainString()}"
+                    }
+                    suggestions.add("₹$targetVal (-$discountStr)" to str)
+                }
+            }
+        }
+
+        // 2. Nearest 10 rounded down (e.g. 1304 -> 1300)
+        val round10Down = (totalInt / 10) * 10
+        addSuggestion(round10Down)
+
+        // 3. 10 below that (e.g. 1304 -> 1290)
+        if (round10Down >= 20) {
+            addSuggestion(round10Down - 10)
+        }
+
+        // 4. Nearest 5 down if between 10s (e.g. 1308 -> 1305)
+        val round5Down = (totalInt / 5) * 5
+        addSuggestion(round5Down)
+
+        // 5. Nearest 50 or 100 down if larger amount (e.g. 1340 -> 1300)
+        if (totalInt >= 100) {
+            val round100Down = (totalInt / 100) * 100
+            addSuggestion(round100Down)
+        }
+
+        return suggestions.take(4)
     }
 }

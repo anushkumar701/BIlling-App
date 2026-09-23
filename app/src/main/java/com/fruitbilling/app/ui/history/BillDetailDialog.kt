@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.fruitbilling.app.data.model.BillWithItems
 import com.fruitbilling.app.data.model.PaymentMethod
 import com.fruitbilling.app.ui.theme.CashGreen
+import com.fruitbilling.app.ui.theme.PendingOrange
 import com.fruitbilling.app.ui.theme.UpiBlue
 import com.fruitbilling.app.util.DateUtils
 import com.fruitbilling.app.util.MoneyUtils
@@ -77,10 +78,12 @@ fun BillDetailDialog(
 
                 val isUpi = bill.paymentMethod == PaymentMethod.UPI
                 val isCash = bill.paymentMethod == PaymentMethod.CASH
+                val isPending = bill.paymentMethod == PaymentMethod.PENDING
                 Surface(
                     color = when {
                         isUpi -> UpiBlue.copy(alpha = 0.15f)
                         isCash -> CashGreen.copy(alpha = 0.15f)
+                        isPending -> PendingOrange.copy(alpha = 0.15f)
                         else -> MaterialTheme.colorScheme.surfaceVariant
                     },
                     shape = RoundedCornerShape(6.dp)
@@ -92,6 +95,7 @@ fun BillDetailDialog(
                             color = when {
                                 isUpi -> UpiBlue
                                 isCash -> CashGreen
+                                isPending -> PendingOrange
                                 else -> MaterialTheme.colorScheme.outline
                             }
                         ),
@@ -114,6 +118,22 @@ fun BillDetailDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
+                }
+
+                // Customer Name (if any)
+                if (!bill.customerName.isNullOrBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "👤 Customer: ",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        Text(
+                            text = bill.customerName,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -217,7 +237,7 @@ fun BillDetailDialog(
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         DetailPaymentChip(
                             label = "💵 Cash",
@@ -242,6 +262,20 @@ fun BillDetailDialog(
                                     onUpdatePaymentMethod(null) // deselect
                                 } else {
                                     onUpdatePaymentMethod(PaymentMethod.UPI)
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        DetailPaymentChip(
+                            label = "⏳ Pending",
+                            isSelected = bill.paymentMethod == PaymentMethod.PENDING,
+                            activeColor = PendingOrange,
+                            onClick = {
+                                if (bill.paymentMethod == PaymentMethod.PENDING) {
+                                    onUpdatePaymentMethod(null) // deselect
+                                } else {
+                                    onUpdatePaymentMethod(PaymentMethod.PENDING)
                                 }
                             },
                             modifier = Modifier.weight(1f)

@@ -596,7 +596,7 @@ class BillingViewModel(
         _uiState.value = _uiState.value.copy(isSaveBillPromptOpen = false)
     }
 
-    fun onConfirmSaveBill(finalAmountText: String, paymentMethod: PaymentMethod?) {
+    fun onConfirmSaveBill(finalAmountText: String, paymentMethod: PaymentMethod?, customerName: String? = null) {
         val state = _uiState.value
         val currentBill = state.currentBill ?: return
 
@@ -619,7 +619,8 @@ class BillingViewModel(
             val result = billRepository.completeBill(
                 billId = currentBill.bill.id,
                 finalAmount = finalAmount,
-                paymentMethod = chosenMethod
+                paymentMethod = chosenMethod,
+                customerName = customerName
             )
 
             result.onSuccess { completedBill ->

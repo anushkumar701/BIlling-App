@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fruitbilling.app.data.model.BillWithItems
@@ -59,11 +60,17 @@ import android.widget.Toast
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalContext
+import com.fruitbilling.app.ui.theme.PendingOrange
 import com.fruitbilling.app.util.CsvExportManager
+import com.fruitbilling.app.util.PdfExportManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,6 +81,7 @@ fun HistoryScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    var showExportMenu by remember { mutableStateOf(false) }
 
     // Collect snackbar messages
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -97,21 +105,44 @@ fun HistoryScreen(
                     },
                     actions = {
                         if (uiState.completedBills.isNotEmpty()) {
-                            IconButton(
-                                onClick = {
-                                    val res = CsvExportManager.exportBillsToCsv(context, uiState.completedBills)
-                                    res.onSuccess { file ->
-                                        CsvExportManager.shareCsvFile(context, file)
-                                    }.onFailure { err ->
-                                        Toast.makeText(context, "Export failed: ${err.message}", Toast.LENGTH_SHORT).show()
-                                    }
+                            Box {
+                                IconButton(onClick = { showExportMenu = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "Export / Print",
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
                                 }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "Export CSV",
-                                    tint = MaterialTheme.colorScheme.onPrimary
-                                )
+
+                                DropdownMenu(
+                                    expanded = showExportMenu,
+                                    onDismissRequest = { showExportMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("📄 Export PDF / Print", fontWeight = FontWeight.SemiBold) },
+                                        onClick = {
+                                            showExportMenu = false
+                                            val res = PdfExportManager.exportBillsToPdf(context, uiState.completedBills)
+                                            res.onSuccess { file ->
+                                                PdfExportManager.sharePdfFile(context, file, "Share / Print PDF Sales Report")
+                                            }.onFailure { err ->
+                                                Toast.makeText(context, "PDF export failed: ${err.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("📊 Export CSV (Excel)", fontWeight = FontWeight.SemiBold) },
+                                        onClick = {
+                                            showExportMenu = false
+                                            val res = CsvExportManager.exportBillsToCsv(context, uiState.completedBills)
+                                            res.onSuccess { file ->
+                                                CsvExportManager.shareCsvFile(context, file)
+                                            }.onFailure { err ->
+                                                Toast.makeText(context, "CSV export failed: ${err.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
                     },
@@ -185,8 +216,8 @@ fun HistoryScreen(
         uiState.editingBill?.let { editingBill ->
             EditCompletedBillDialog(
                 billWithItems = editingBill,
-                onSave = { billId, items, finalAmount, paymentMethod ->
-                    viewModel.onSaveEditedBill(billId, items, finalAmount, paymentMethod)
+                onSave = { billId, items, finalAmount, paymentMethod, customerName ->
+                    viewModel.onSaveEditedBill(billId, items, finalAmount, paymentMethod, customerName)
                 },
                 onDismiss = viewModel::onDismissEditBill
             )
@@ -477,6 +508,7 @@ fun HistoryBillRow(
     val bill = billWithItems.bill
     val isUpi = bill.paymentMethod == PaymentMethod.UPI
     val isCash = bill.paymentMethod == PaymentMethod.CASH
+    val isPending = bill.paymentMethod == PaymentMethod.PENDING
     val isUnspecified = bill.paymentMethod == null
 
     Card(
@@ -497,7 +529,7 @@ fun HistoryBillRow(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Bill number and date
+                // Bill number, customer, and date
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = bill.formattedBillNumber,
@@ -511,6 +543,15 @@ fun HistoryBillRow(
                             text = DateUtils.formatBillTimestamp(timestamp),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    if (!bill.customerName.isNullOrBlank()) {
+                        Text(
+                            text = "👤 ${bill.customerName}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -536,15 +577,26 @@ fun HistoryBillRow(
                         color = when {
                             isUpi -> UpiBlue.copy(alpha = 0.12f)
                             isCash -> CashGreen.copy(alpha = 0.12f)
+                            isPending -> PendingOrange.copy(alpha = 0.15f)
                             else -> MaterialTheme.colorScheme.surfaceVariant
                         },
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
-                            text = bill.paymentMethod?.label ?: "",
+                            text = when (bill.paymentMethod) {
+                                PaymentMethod.CASH -> "💵 Cash"
+                                PaymentMethod.UPI -> "📱 UPI"
+                                PaymentMethod.PENDING -> "⏳ Pending"
+                                else -> bill.paymentMethod?.label ?: ""
+                            },
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = if (isUpi) UpiBlue else CashGreen
+                                color = when {
+                                    isUpi -> UpiBlue
+                                    isCash -> CashGreen
+                                    isPending -> PendingOrange
+                                    else -> MaterialTheme.colorScheme.outline
+                                }
                             ),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
@@ -552,13 +604,12 @@ fun HistoryBillRow(
                 }
             }
 
-            // If payment is unspecified, offer 1-tap quick Cash / UPI buttons directly on row!
-            // No "Unspecified" button exists: if cashier taps neither, it stays unspecified.
+            // If payment is unspecified, offer 1-tap quick Cash / UPI / Pending buttons directly on row!
             if (isUnspecified) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -576,7 +627,7 @@ fun HistoryBillRow(
                     ) {
                         Box(
                             contentAlignment = Alignment.Center,
-                            modifier = Modifier.padding(horizontal = 10.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp)
                         ) {
                             Text(
                                 text = "💵 Cash",
@@ -597,13 +648,34 @@ fun HistoryBillRow(
                     ) {
                         Box(
                             contentAlignment = Alignment.Center,
-                            modifier = Modifier.padding(horizontal = 10.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp)
                         ) {
                             Text(
                                 text = "📱 UPI",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = UpiBlue
+                                )
+                            )
+                        }
+                    }
+
+                    Surface(
+                        onClick = { onSetPayment(PaymentMethod.PENDING) },
+                        shape = RoundedCornerShape(6.dp),
+                        color = PendingOrange.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, PendingOrange.copy(alpha = 0.5f)),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        ) {
+                            Text(
+                                text = "⏳ Pending",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = PendingOrange
                                 )
                             )
                         }

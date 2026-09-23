@@ -9,33 +9,49 @@ import java.math.BigDecimal
 object ReceiptUtils {
 
     /**
-     * Generates a clean, professional retail receipt text suitable for WhatsApp, SMS, or printing.
+     * Generates a clean, professional retail receipt text with aligned prices
+     * and structured layout suitable for WhatsApp, SMS, or thermal printing.
      */
     fun generateReceiptText(
         billWithItems: BillWithItems,
-        storeName: String = "Retail Store",
+        storeName: String = "Retail Billing POS",
         storePhone: String? = null,
         changeAmount: BigDecimal? = null
     ): String {
         val bill = billWithItems.bill
         val items = billWithItems.items
         val dateStr = DateUtils.formatDetailedTimestamp(bill.completedAt ?: bill.createdAt)
-        val payMode = bill.paymentMethod?.label ?: "Paid"
+
+        val payText = when (bill.paymentMethod) {
+            PaymentMethod.CASH -> "💵 Cash"
+            PaymentMethod.UPI -> "📱 UPI"
+            PaymentMethod.PENDING -> "⏳ Pending (Pay Later)"
+            null -> "⚠️ Unspecified"
+        }
 
         val phoneHeader = if (!storePhone.isNullOrBlank()) "\n📞 Contact: $storePhone" else ""
+        val customerLine = if (!bill.customerName.isNullOrBlank()) "\n👤 Customer: ${bill.customerName}" else ""
+
+        // Target line width for dot leader alignment
+        val targetWidth = 32
 
         val itemsFormatted = items.mapIndexed { index, item ->
             val title = item.productNameSnapshot ?: item.displayExpression
             val priceStr = MoneyUtils.formatPrice(item.calculatedAmount)
-            val subLine = if (item.productNameSnapshot != null && item.expression.isNotBlank()) {
-                val exprDisplay = item.displayExpression.replace("*", "×")
-                "   $exprDisplay = $priceStr"
-            } else null
 
-            if (subLine != null) {
-                "${index + 1}. $title\n$subLine"
+            if (item.productNameSnapshot != null && item.expression.isNotBlank()) {
+                val exprDisplay = item.displayExpression.replace("*", "×")
+                // Format: "   2 kg × ₹150 ... ₹300.00"
+                val prefix = "   $exprDisplay "
+                val dotsNeeded = (targetWidth - prefix.length - priceStr.length).coerceAtLeast(3)
+                val dots = ".".repeat(dotsNeeded)
+                "${index + 1}. $title\n$prefix$dots $priceStr"
             } else {
-                "${index + 1}. $title: $priceStr"
+                // Expression item: e.g. "1. 500 × 700g ... ₹350.00"
+                val prefix = "${index + 1}. $title "
+                val dotsNeeded = (targetWidth - prefix.length - priceStr.length).coerceAtLeast(3)
+                val dots = ".".repeat(dotsNeeded)
+                "$prefix$dots $priceStr"
             }
         }.joinToString("\n")
 
@@ -44,33 +60,27 @@ object ReceiptUtils {
 
         val discountPart = if (bill.finalAmount != null && bill.finalAmount < bill.calculatedTotal) {
             val discountVal = bill.calculatedTotal.subtract(bill.finalAmount)
-            "\nOriginal Total: $totalCalculated\nDiscount: -${MoneyUtils.formatPrice(discountVal)}"
+            "\nItems Total:  $totalCalculated\nDiscount:     -${MoneyUtils.formatPrice(discountVal)}"
         } else ""
 
         val changePart = if (changeAmount != null && changeAmount > BigDecimal.ZERO) {
-            "\nCash Change Returned: ${MoneyUtils.formatPrice(changeAmount)}"
+            "\nChange Due:   ${MoneyUtils.formatPrice(changeAmount)}"
         } else ""
 
-        val payEmoji = when (bill.paymentMethod) {
-            PaymentMethod.CASH -> "💵 "
-            PaymentMethod.UPI -> "📱 "
-            else -> "💳 "
-        }
-
         return """
-            🧾 *RETAIL INVOICE*
-            🏪 *$storeName*$phoneHeader
-            ──────────────────────────────
-            Bill No: ${bill.formattedBillNumber}
-            Date: $dateStr
-            ──────────────────────────────
-            *ITEMS:*
-            $itemsFormatted
-            ──────────────────────────────$discountPart
-            *GRAND TOTAL: $chargedAmount*
-            Payment Mode: $payEmoji$payMode$changePart
-            ──────────────────────────────
-            Thank you! Please visit again! 🙏
+🧾 *RETAIL INVOICE*
+🏪 *$storeName*$phoneHeader
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Bill No:  ${bill.formattedBillNumber}
+Date:     $dateStr$customerLine
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+*ITEMS:*
+$itemsFormatted
+━━━━━━━━━━━━━━━━━━━━━━━━━━$discountPart
+*GRAND TOTAL: $chargedAmount*
+Payment: $payText$changePart
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Thank you! Please visit again! 🙏
         """.trimIndent()
     }
 

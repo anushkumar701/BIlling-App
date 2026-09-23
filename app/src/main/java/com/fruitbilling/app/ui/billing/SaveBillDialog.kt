@@ -57,6 +57,7 @@ import com.fruitbilling.app.data.model.BillItem
 import com.fruitbilling.app.data.model.BillWithItems
 import com.fruitbilling.app.data.model.PaymentMethod
 import com.fruitbilling.app.ui.theme.CashGreen
+import com.fruitbilling.app.ui.theme.PendingOrange
 import com.fruitbilling.app.ui.theme.UpiBlue
 import com.fruitbilling.app.util.MoneyUtils
 import com.fruitbilling.app.util.ReceiptUtils
@@ -70,11 +71,12 @@ import java.math.RoundingMode
  *  1. Bill number & item count
  *  2. Itemized list of all products & calculations with 1-tap delete
  *  3. Calculated Total
- *  4. Optional Final Price override (e.g. round off / discount)
- *  5. Payment mode selector (Cash / UPI)
- *  6. Cash Tender & Return Change calculation (for Cash sales)
- *  7. "Share Receipt" via WhatsApp / text
- *  8. "Cancel / Add More" and "Confirm & Save Bill" buttons
+ *  4. Optional Final Price override & smart price round-off suggestions
+ *  5. Payment mode selector (Cash / UPI / Pending)
+ *  6. Optional customer name for Pending payments
+ *  7. Cash Tender & Return Change calculation (for Cash sales)
+ *  8. "Share Receipt" via WhatsApp / text
+ *  9. "Cancel / Add More" and "Confirm & Save Bill" buttons
  *
  * The bill is ONLY saved when the cashier confirms here.
  */
@@ -84,7 +86,7 @@ fun SaveBillDialog(
     initialFinalPrice: String,
     initialPaymentMethod: PaymentMethod?,
     isSaving: Boolean,
-    onConfirmSave: (finalPriceText: String, paymentMethod: PaymentMethod?) -> Unit,
+    onConfirmSave: (finalPriceText: String, paymentMethod: PaymentMethod?, customerName: String?) -> Unit,
     onDismiss: () -> Unit,
     onDeleteItem: ((BillItem) -> Unit)? = null
 ) {
@@ -100,6 +102,7 @@ fun SaveBillDialog(
         )
     }
     var selectedPayment by remember { mutableStateOf(initialPaymentMethod) }
+    var customerNameInput by remember { mutableStateOf(bill.customerName ?: "") }
     var cashTenderedInput by remember { mutableStateOf("") }
 
     val parsedFinal = finalPriceText.trim().toBigDecimalOrNull()
@@ -296,6 +299,40 @@ fun SaveBillDialog(
                     }
                 )
 
+                // Smart rounded price suggestions (e.g. ₹1304 -> ₹1300, ₹1290)
+                val priceSuggestions = MoneyUtils.getFinalPriceSuggestions(calculatedTotal)
+                if (priceSuggestions.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        priceSuggestions.forEach { (label, value) ->
+                            val isSelected = finalPriceText.trim() == value
+                            Surface(
+                                onClick = { finalPriceText = value },
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(32.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // 4. Payment Mode Selection
                 Text(
                     text = "Payment Mode:",
@@ -305,7 +342,7 @@ fun SaveBillDialog(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Cash Option
                     val isCashSelected = selectedPayment == PaymentMethod.CASH
@@ -326,7 +363,7 @@ fun SaveBillDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
+                                .padding(horizontal = 4.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -338,7 +375,7 @@ fun SaveBillDialog(
                                 )
                             )
                             if (isCashSelected) {
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(2.dp))
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = null,
@@ -368,7 +405,7 @@ fun SaveBillDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
+                                .padding(horizontal = 4.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -380,7 +417,7 @@ fun SaveBillDialog(
                                 )
                             )
                             if (isUpiSelected) {
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(2.dp))
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = null,
@@ -388,6 +425,80 @@ fun SaveBillDialog(
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
+                        }
+                    }
+
+                    // Pending Option (Pay Later)
+                    val isPendingSelected = selectedPayment == PaymentMethod.PENDING
+                    Surface(
+                        onClick = {
+                            selectedPayment = if (isPendingSelected) null else PaymentMethod.PENDING
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isPendingSelected) PendingOrange.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(
+                            width = if (isPendingSelected) 2.dp else 1.dp,
+                            color = if (isPendingSelected) PendingOrange else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⏳ Pending",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = if (isPendingSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isPendingSelected) PendingOrange else MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                            if (isPendingSelected) {
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = PendingOrange,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Customer info for Pending / Pay-Later orders
+                if (selectedPayment == PaymentMethod.PENDING) {
+                    Surface(
+                        color = PendingOrange.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, PendingOrange.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "⏳ Pay Later / Customer Info",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = PendingOrange
+                                )
+                            )
+                            OutlinedTextField(
+                                value = customerNameInput,
+                                onValueChange = { customerNameInput = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Customer Name / Phone (Optional)") },
+                                placeholder = { Text("e.g. Ramesh, Stall #4") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp)
+                            )
                         }
                     }
                 }
@@ -505,8 +616,10 @@ fun SaveBillDialog(
                         val change = if (tendered != null && tendered >= effectiveAmount) tendered.subtract(effectiveAmount) else null
                         val shopName = com.fruitbilling.app.data.preferences.ShopPreferences.getShopName(context)
                         val shopPhone = com.fruitbilling.app.data.preferences.ShopPreferences.getShopPhone(context)
+                        val custName = customerNameInput.trim().ifEmpty { null }
+                        val previewBill = bill.copy(customerName = custName, paymentMethod = selectedPayment, finalAmount = parsedFinal)
                         val receiptText = ReceiptUtils.generateReceiptText(
-                            billWithItems = billWithItems,
+                            billWithItems = billWithItems.copy(bill = previewBill),
                             storeName = shopName,
                             storePhone = shopPhone,
                             changeAmount = change
@@ -523,7 +636,7 @@ fun SaveBillDialog(
 
                 Button(
                     onClick = {
-                        onConfirmSave(finalPriceText, selectedPayment)
+                        onConfirmSave(finalPriceText, selectedPayment, customerNameInput.trim().ifEmpty { null })
                     },
                     enabled = !isSaving && items.isNotEmpty(),
                     shape = RoundedCornerShape(8.dp),

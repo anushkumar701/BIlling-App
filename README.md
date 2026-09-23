@@ -1,39 +1,37 @@
-# 🛍️ Retail Billing POS (v1.6.0)
+# 🛍️ Retail Billing POS (v1.7.0)
 
 [![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://developer.android.com)
-[![Version](https://img.shields.io/badge/Release-v1.6.0-blue.svg)](https://github.com/anushkumar701/BIlling-App/releases)
+[![Version](https://img.shields.io/badge/Release-v1.7.0-blue.svg)](https://github.com/anushkumar701/BIlling-App/releases)
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-brightgreen.svg)](https://developer.android.com/jetpack/compose)
 [![Offline First](https://img.shields.io/badge/Architecture-100%25%20Offline--First-orange.svg)](https://developer.android.com/training/data-storage/room)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
-**Retail Billing POS** is a high-speed, offline-first Point-of-Sale (POS) and smart calculator-first billing application tailored for retail stores, supermarkets, grocery outlets, and busy fruit stalls. Engineered for peak rush-hour efficiency with zero lag, tactile haptic feedback, customizable shop receipts, and intuitive counter workflows.
+**Retail Billing POS** is a high-speed, offline-first Point-of-Sale (POS) and smart calculator-first billing application tailored for retail stores, supermarkets, grocery outlets, and busy fruit stalls. Engineered for peak rush-hour efficiency with zero lag, tactile haptic feedback, customizable shop receipts, PDF print support, and intuitive counter workflows.
 
 ---
 
-## ✨ What's New in v1.6.0
+## ✨ What's New in v1.7.0
 
-* 🏬 **Retail Billing POS Rebranding:** Modern, generalized retail point-of-sale branding suitable for all retail counters, grocery stores, and fruit markets.
-* 🏪 **Customizable Shop Profile & WhatsApp Invoicing:**
-  * Configure your **Shop Name** and **Contact / UPI phone number** in Menu settings.
-  * Generates clean, professional WhatsApp & SMS receipts with clean Unicode borders, itemized quantities, rates, discounts, and bold grand totals.
-* ⚡ **Rush-Hour Optimized Keypad:**
-  * **Unified Right-Hand Thumb Operator Column:** `[⌫]` ➔ `[×]` ➔ `[+]` ➔ `[=]` for blisteringly fast one-handed cashier operations.
-  * **New `00` Button:** 1-tap entry of common currency amounts (`100`, `200`, `500`, `1000`).
-  * **Long-Press Clear All (`C`):** Hold the backspace key to clear entire expressions instantly with haptic confirmation.
-  * **Removed Minus (`−`):** Eliminated unused operator space to maximize button size and thumb ergonomics.
-* 📐 **Adjustable Calculator Screen:**
-  * Cashiers can dynamically adjust the keypad height between **38dp and 65dp** using a smooth vertical drag handle.
-  * 1-Tap quick presets: **S (Compact - 42dp)** (maximizes visible receipt lines), **M (Standard - 50dp)**, and **L (Rush - 60dp)** (extra-large buttons to eliminate fat-finger errors during peak crowds).
-  * Remembers sizing preferences automatically across sessions.
-* ✏️ **Edit Completed Bills in Sales History:**
-  * Re-open any completed bill to add/remove items, adjust quantities/rates, update final prices, or switch payment methods.
-  * Updates in-place while strictly preserving the original bill number (e.g. `#105` remains `#105`).
-* 🔄 **Daily Resetting Bill Numbers:**
-  * Automatically starts at `#001` each morning. Bill numbers never repeat or get skipped even if bills are cancelled or removed.
-* 🚀 **Silent Background OTA Updates:**
-  * Automatically pre-caches update APKs in the background when connected.
-  * Prompts with an instant 1-tap install dialog without making the user wait for download completion.
+* ⏳ **Pending Payment ("Pay Later") Mode:**
+  * Tag bills as **Pending** when trusted regulars or credit customers pay later.
+  * Optional customer name / phone number field (`👤 Ramesh`, `Stall #4`).
+  * Instant filter chips in History: view all pending orders and total credit balance at a glance.
+  * Direct 1-tap payment settlement from History when the customer returns to pay.
+* 💵 **Cash Tender Exact Amount Display:**
+  * Replaced the ambiguous "Exact" button with the actual money amount (e.g. **₹760** instead of "Exact") so cashiers see the exact currency note needed immediately.
+* 🎯 **Smart Final Price Round-Off Suggestions:**
+  * Auto-generates rounded-down discount suggestion chips (e.g. ₹1304 ➔ **₹1300 (-₹4)**, **₹1290 (-₹14)**).
+  * Cashiers can close bills with a single tap without manual mental math.
+* 🔤 **Smart Expression Backspace Assist:**
+  * Fixed backspace behavior when editing expressions with weight units (e.g. `500 × 700g`).
+  * Pressing erase now deletes digits (`700` ➔ `70` ➔ `7`) instead of accidentally stripping the `g` suffix.
+* 📄 **Native PDF Invoice & Report Export:**
+  * Built-in Android `PdfDocument` engine — generates clean, professional A4 PDF invoices and multi-page sales summaries ready for instant thermal printing or sharing.
+* 📏 **Clean S / M / L Keypad Presets:**
+  * Removed confusing drag handle. Replaced with clean 1-tap **S (Compact)**, **M (Standard)**, and **L (Rush)** presets that persist across launches.
+* 🧾 **Improved WhatsApp Receipt Alignment:**
+  * Clean dot-leader price alignment (`Apple 1.5kg ......... ₹180.00`) and Unicode borders for crisp readability on mobile screens.
 
 ---
 

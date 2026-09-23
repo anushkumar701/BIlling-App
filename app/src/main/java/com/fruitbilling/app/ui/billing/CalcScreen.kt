@@ -164,10 +164,10 @@ fun CalcScreen(
                 onPaymentMethodSelected = viewModel::onPaymentMethodSelected
             )
 
-            // ── Adjustable Keypad Sizing Handle (S / M / L presets + drag) ───
-            KeypadResizeHandle(
+            // ── Keypad Size Presets (S / M / L) ─────────────────────────────
+            KeypadPresetSelector(
                 currentHeightDp = keypadHeightDp,
-                onHeightChanged = { newHeight ->
+                onPresetSelected = { newHeight ->
                     keypadHeightDp = newHeight
                     com.fruitbilling.app.data.preferences.CalcPreferences.setKeypadHeightDp(context, newHeight)
                 }
@@ -436,31 +436,24 @@ fun CalcSaveStrip(
 }
 
 @Composable
-private fun KeypadResizeHandle(
+private fun KeypadPresetSelector(
     currentHeightDp: Float,
-    onHeightChanged: (Float) -> Unit,
+    onPresetSelected: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .pointerInput(Unit) {
-                detectVerticalDragGestures { _, dragAmount ->
-                    // Dragging up increases keypad height, dragging down decreases keypad height
-                    val newHeight = currentHeightDp - (dragAmount / 2.5f)
-                    onHeightChanged(newHeight.coerceIn(38f, 65f))
-                }
-            }
             .padding(vertical = 3.dp, horizontal = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Preset chips: S (Compact), M (Standard), L (Large Rush)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
-                "S (Compact)" to com.fruitbilling.app.data.preferences.CalcPreferences.COMPACT_HEIGHT_DP,
+                "S" to com.fruitbilling.app.data.preferences.CalcPreferences.COMPACT_HEIGHT_DP,
                 "M" to com.fruitbilling.app.data.preferences.CalcPreferences.DEFAULT_HEIGHT_DP,
-                "L (Rush)" to com.fruitbilling.app.data.preferences.CalcPreferences.LARGE_HEIGHT_DP
+                "L" to com.fruitbilling.app.data.preferences.CalcPreferences.LARGE_HEIGHT_DP
             ).forEach { (label, presetHeight) ->
                 val isSelected = kotlin.math.abs(currentHeightDp - presetHeight) < 4f
                 Box(
@@ -470,12 +463,12 @@ private fun KeypadResizeHandle(
                             if (isSelected) MaterialTheme.colorScheme.primaryContainer
                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         )
-                        .clickable { onHeightChanged(presetHeight) }
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                        .clickable { onPresetSelected(presetHeight) }
+                        .padding(horizontal = 12.dp, vertical = 3.dp)
                 ) {
                     Text(
                         text = label,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
                         else MaterialTheme.colorScheme.onSurfaceVariant
@@ -483,21 +476,6 @@ private fun KeypadResizeHandle(
                 }
             }
         }
-
-        // Center drag pill
-        Box(
-            modifier = Modifier
-                .width(36.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
-        )
-
-        Text(
-            text = "${currentHeightDp.toInt()}dp",
-            fontSize = 10.sp,
-            color = MaterialTheme.colorScheme.outline
-        )
     }
 }
 

@@ -23,6 +23,7 @@ data class Bill(
     val calculatedTotal: BigDecimal = BigDecimal.ZERO,
     val finalAmount: BigDecimal? = null,
     val paymentMethod: PaymentMethod? = null,
+    val customerName: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val completedAt: Long? = null
 ) {
