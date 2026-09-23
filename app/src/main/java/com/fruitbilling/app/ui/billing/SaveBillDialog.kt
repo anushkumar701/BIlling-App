@@ -503,7 +503,14 @@ fun SaveBillDialog(
                     onClick = {
                         val tendered = cashTenderedInput.toBigDecimalOrNull()
                         val change = if (tendered != null && tendered >= effectiveAmount) tendered.subtract(effectiveAmount) else null
-                        val receiptText = ReceiptUtils.generateReceiptText(billWithItems, changeAmount = change)
+                        val shopName = com.fruitbilling.app.data.preferences.ShopPreferences.getShopName(context)
+                        val shopPhone = com.fruitbilling.app.data.preferences.ShopPreferences.getShopPhone(context)
+                        val receiptText = ReceiptUtils.generateReceiptText(
+                            billWithItems = billWithItems,
+                            storeName = shopName,
+                            storePhone = shopPhone,
+                            changeAmount = change
+                        )
                         ReceiptUtils.shareReceipt(context, receiptText, "Share Bill ${bill.formattedBillNumber}")
                     },
                     shape = RoundedCornerShape(8.dp),

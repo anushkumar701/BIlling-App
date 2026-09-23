@@ -16,6 +16,7 @@ data class Product(
     val price: BigDecimal,
     val unit: ProductUnit = ProductUnit.KG,
     val iconRef: String? = null,
+    val buyingCost: BigDecimal? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val active: Boolean = true

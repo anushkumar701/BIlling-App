@@ -3,13 +3,16 @@ package com.fruitbilling.app.ui.history
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.fruitbilling.app.data.model.BillItem
 import com.fruitbilling.app.data.model.BillWithItems
 import com.fruitbilling.app.data.model.PaymentMethod
 import com.fruitbilling.app.data.repository.BillRepository
 import com.fruitbilling.app.data.repository.MonthSalesSummary
 import com.fruitbilling.app.data.repository.TodayStats
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -41,7 +44,8 @@ data class HistoryUiState(
     val selectedTab: HistoryTab = HistoryTab.BILLS,
     val selectedFilter: PaymentFilter = PaymentFilter.ALL,
     val searchQuery: String = "",
-    val selectedBillForDetail: BillWithItems? = null
+    val selectedBillForDetail: BillWithItems? = null,
+    val editingBill: BillWithItems? = null
 ) {
     val filteredBills: List<BillWithItems>
         get() {
@@ -58,9 +62,15 @@ data class HistoryUiState(
                 billWithItems.bill.formattedBillNumber.lowercase().contains(q) ||
                 (billWithItems.bill.finalAmount?.toPlainString()?.contains(q) == true) ||
                 (billWithItems.bill.calculatedTotal.toPlainString().contains(q)) ||
+                // Search by payment method name
+                (billWithItems.bill.paymentMethod?.label?.lowercase()?.contains(q) == true) ||
+                (q == "cash" && billWithItems.bill.paymentMethod == PaymentMethod.CASH) ||
+                (q == "upi" && billWithItems.bill.paymentMethod == PaymentMethod.UPI) ||
+                (q == "pending" && billWithItems.bill.paymentMethod == null) ||
                 billWithItems.items.any { item ->
                     item.productNameSnapshot?.lowercase()?.contains(q) == true ||
-                    item.expression.lowercase().contains(q)
+                    item.expression.lowercase().contains(q) ||
+                    item.calculatedAmount.toPlainString().contains(q)
                 }
             }
         }
@@ -82,6 +92,9 @@ class HistoryViewModel(
     private val _uiState = MutableStateFlow(HistoryUiState())
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
 
+    private val _snackbarMessages = MutableSharedFlow<String>()
+    val snackbarMessages = _snackbarMessages.asSharedFlow()
+
     init {
         viewModelScope.launch {
             billRepository.completedBills.collect { bills ->
@@ -92,6 +105,14 @@ class HistoryViewModel(
                     val updated = bills.find { it.bill.id == currentDetail.bill.id }
                     if (updated != null) {
                         _uiState.value = _uiState.value.copy(selectedBillForDetail = updated)
+                    }
+                }
+                // If editing, update the editing bill snapshot too
+                val currentEdit = _uiState.value.editingBill
+                if (currentEdit != null) {
+                    val updated = bills.find { it.bill.id == currentEdit.bill.id }
+                    if (updated != null) {
+                        _uiState.value = _uiState.value.copy(editingBill = updated)
                     }
                 }
             }
@@ -122,7 +143,6 @@ class HistoryViewModel(
         _uiState.value = _uiState.value.copy(searchQuery = query)
     }
 
-
     fun onBillSelected(bill: BillWithItems) {
         _uiState.value = _uiState.value.copy(selectedBillForDetail = bill)
     }
@@ -145,6 +165,41 @@ class HistoryViewModel(
         viewModelScope.launch {
             billRepository.deleteBill(billId)
             _uiState.value = _uiState.value.copy(selectedBillForDetail = null)
+        }
+    }
+
+    // ── Edit Completed Bill ─────────────────────────────────────────────
+
+    fun onEditBill(bill: BillWithItems) {
+        _uiState.value = _uiState.value.copy(
+            editingBill = bill,
+            selectedBillForDetail = null  // Close detail dialog
+        )
+    }
+
+    fun onDismissEditBill() {
+        _uiState.value = _uiState.value.copy(editingBill = null)
+    }
+
+    fun onSaveEditedBill(
+        billId: Long,
+        items: List<BillItem>,
+        finalAmount: BigDecimal?,
+        paymentMethod: PaymentMethod?
+    ) {
+        viewModelScope.launch {
+            val result = billRepository.updateCompletedBill(
+                billId = billId,
+                newItems = items,
+                finalAmount = finalAmount,
+                paymentMethod = paymentMethod
+            )
+            result.onSuccess { bill ->
+                _uiState.value = _uiState.value.copy(editingBill = null)
+                _snackbarMessages.emit("Bill ${bill.formattedBillNumber} updated ✅")
+            }.onFailure { error ->
+                _snackbarMessages.emit("Edit failed: ${error.message}")
+            }
         }
     }
 }

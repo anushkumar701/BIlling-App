@@ -1,8 +1,10 @@
 package com.fruitbilling.app.ui.billing
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,6 +56,8 @@ fun CalculatorKeypad(
     onDecimalClicked: () -> Unit,
     onEqualsClicked: () -> Unit,
     onBackspace: () -> Unit,
+    onClearAll: (() -> Unit)? = null,
+    keyHeight: androidx.compose.ui.unit.Dp = 50.dp,
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
@@ -116,15 +120,20 @@ fun CalculatorKeypad(
             }
         }
 
-        // ── Row 1: 7 8 9 ⌫ ──────────────────────────────────────────────────
+        // ── Row 1: 7 8 9 ⌫ (Long press to Clear All) ─────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            KeypadButton(item = KeyItem("7", KeyType.DIGIT) { onDigitClicked("7") }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
-            KeypadButton(item = KeyItem("8", KeyType.DIGIT) { onDigitClicked("8") }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
-            KeypadButton(item = KeyItem("9", KeyType.DIGIT) { onDigitClicked("9") }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
-            BackspaceKey(onClick = { haptic(); onBackspace() }, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem("7", KeyType.DIGIT) { onDigitClicked("7") }, height = keyHeight, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem("8", KeyType.DIGIT) { onDigitClicked("8") }, height = keyHeight, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem("9", KeyType.DIGIT) { onDigitClicked("9") }, height = keyHeight, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            BackspaceKey(
+                onClick = { haptic(); onBackspace() },
+                onLongClick = if (onClearAll != null) { { hapticConfirm(); onClearAll() } } else null,
+                height = keyHeight,
+                modifier = Modifier.weight(1f)
+            )
         }
 
         // ── Row 2: 4 5 6 × ──────────────────────────────────────────────────
@@ -133,27 +142,29 @@ fun CalculatorKeypad(
             col2 = KeyItem("5", KeyType.DIGIT) { onDigitClicked("5") },
             col3 = KeyItem("6", KeyType.DIGIT) { onDigitClicked("6") },
             col4 = KeyItem("×", KeyType.OPERATOR) { onOperatorClicked("×") },
+            height = keyHeight,
             onHaptic = ::haptic
         )
 
-        // ── Row 3: 1 2 3 − ──────────────────────────────────────────────────
+        // ── Row 3: 1 2 3 + (Replaces useless minus for fast item addition) ───
         KeypadRow(
             col1 = KeyItem("1", KeyType.DIGIT) { onDigitClicked("1") },
             col2 = KeyItem("2", KeyType.DIGIT) { onDigitClicked("2") },
             col3 = KeyItem("3", KeyType.DIGIT) { onDigitClicked("3") },
-            col4 = KeyItem("−", KeyType.OPERATOR) { onOperatorClicked("−") },
+            col4 = KeyItem("+", KeyType.OPERATOR) { onOperatorClicked("+") },
+            height = keyHeight,
             onHaptic = ::haptic
         )
 
-        // ── Row 4: 0 . + = ──────────────────────────────────────────────────
+        // ── Row 4: 0 00 . = (00 button allows 1-tap round prices) ───────────
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            KeypadButton(item = KeyItem("0", KeyType.DIGIT) { onDigitClicked("0") }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
-            KeypadButton(item = KeyItem(".", KeyType.DIGIT) { onDecimalClicked() }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
-            KeypadButton(item = KeyItem("+", KeyType.OPERATOR) { onOperatorClicked("+") }, onHaptic = ::haptic, modifier = Modifier.weight(1f))
-            KeypadButton(item = KeyItem("=", KeyType.EQUALS) { onEqualsClicked() }, onHaptic = ::hapticConfirm, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem("0", KeyType.DIGIT) { onDigitClicked("0") }, height = keyHeight, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem("00", KeyType.DIGIT) { onDigitClicked("00") }, height = keyHeight, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem(".", KeyType.DIGIT) { onDecimalClicked() }, height = keyHeight, onHaptic = ::haptic, modifier = Modifier.weight(1f))
+            KeypadButton(item = KeyItem("=", KeyType.EQUALS) { onEqualsClicked() }, height = keyHeight, onHaptic = ::hapticConfirm, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -174,22 +185,24 @@ private fun KeypadRow(
     col2: KeyItem,
     col3: KeyItem,
     col4: KeyItem,
+    height: androidx.compose.ui.unit.Dp = 50.dp,
     onHaptic: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        KeypadButton(item = col1, onHaptic = onHaptic, modifier = Modifier.weight(1f))
-        KeypadButton(item = col2, onHaptic = onHaptic, modifier = Modifier.weight(1f))
-        KeypadButton(item = col3, onHaptic = onHaptic, modifier = Modifier.weight(1f))
-        KeypadButton(item = col4, onHaptic = onHaptic, modifier = Modifier.weight(1f))
+        KeypadButton(item = col1, height = height, onHaptic = onHaptic, modifier = Modifier.weight(1f))
+        KeypadButton(item = col2, height = height, onHaptic = onHaptic, modifier = Modifier.weight(1f))
+        KeypadButton(item = col3, height = height, onHaptic = onHaptic, modifier = Modifier.weight(1f))
+        KeypadButton(item = col4, height = height, onHaptic = onHaptic, modifier = Modifier.weight(1f))
     }
 }
 
 @Composable
 private fun KeypadButton(
     item: KeyItem,
+    height: androidx.compose.ui.unit.Dp = 50.dp,
     onHaptic: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -206,7 +219,7 @@ private fun KeypadButton(
 
     Box(
         modifier = modifier
-            .height(50.dp)
+            .height(height)
             .clip(RoundedCornerShape(10.dp))
             .background(containerColor)
             .clickable(
@@ -215,27 +228,39 @@ private fun KeypadButton(
             ) { onHaptic(); item.action() },
         contentAlignment = Alignment.Center
     ) {
+        val fontSize = when {
+            item.label == "00" -> if (height >= 55.dp) 22.sp else 19.sp
+            item.type == KeyType.DIGIT -> if (height >= 55.dp) 24.sp else 22.sp
+            else -> if (height >= 55.dp) 26.sp else 24.sp
+        }
         Text(
             text = item.label,
             color = contentColor,
-            fontSize = if (item.type == KeyType.DIGIT) 22.sp else 24.sp,
+            fontSize = fontSize,
             fontWeight = FontWeight.Bold
         )
     }
 }
 
-/** Dedicated backspace key with standard ⌫ icon */
+/** Dedicated backspace key with standard ⌫ icon and optional long press to clear */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BackspaceKey(onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun BackspaceKey(
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    height: androidx.compose.ui.unit.Dp = 50.dp,
+    modifier: Modifier = Modifier
+) {
     Box(
         modifier = modifier
-            .height(50.dp)
+            .height(height)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f))
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = onClick
+                onClick = onClick,
+                onLongClick = onLongClick
             ),
         contentAlignment = Alignment.Center
     ) {

@@ -44,6 +44,7 @@ fun BillDetailDialog(
     billWithItems: BillWithItems,
     onUpdatePaymentMethod: (PaymentMethod?) -> Unit,
     onDeleteBill: ((Long) -> Unit)? = null,
+    onEditBill: ((BillWithItems) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val bill = billWithItems.bill
@@ -51,7 +52,13 @@ fun BillDetailDialog(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     fun shareReceipt() {
-        val receiptText = com.fruitbilling.app.util.ReceiptUtils.generateReceiptText(billWithItems)
+        val shopName = com.fruitbilling.app.data.preferences.ShopPreferences.getShopName(context)
+        val shopPhone = com.fruitbilling.app.data.preferences.ShopPreferences.getShopPhone(context)
+        val receiptText = com.fruitbilling.app.util.ReceiptUtils.generateReceiptText(
+            billWithItems = billWithItems,
+            storeName = shopName,
+            storePhone = shopPhone
+        )
         com.fruitbilling.app.util.ReceiptUtils.shareReceipt(context, receiptText, "Share Receipt - ${bill.formattedBillNumber}")
     }
 
@@ -259,6 +266,11 @@ fun BillDetailDialog(
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
                         Text("🗑️ Delete", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                if (onEditBill != null) {
+                    TextButton(onClick = { onEditBill(billWithItems) }) {
+                        Text("✏️ Edit", fontWeight = FontWeight.SemiBold)
                     }
                 }
                 TextButton(onClick = ::shareReceipt) {

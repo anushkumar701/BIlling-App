@@ -142,10 +142,10 @@ class BillingViewModel(
         val current = _uiState.value.pendingExpression.trim()
         if (current.isEmpty()) return
 
-        // If ends with an operator, replace it
+        // If ends with an operator, replace it cleanly
         val lastChar = current.last()
         val newExpr = if (lastChar in listOf('+', '\u2212', '-', '\u00D7', '*', '\u00F7', '/')) {
-            current.dropLast(1) + " $op "
+            current.dropLast(1).trimEnd() + " $op "
         } else {
             "$current $op "
         }

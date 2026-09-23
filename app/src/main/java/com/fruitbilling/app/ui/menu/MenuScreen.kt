@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -82,6 +84,9 @@ fun MenuScreen(
     val context = LocalContext.current
     var showTermsDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showShopProfileDialog by remember { mutableStateOf(false) }
+    var shopNameState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getShopName(context)) }
+    var shopPhoneState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getShopPhone(context) ?: "") }
 
     LaunchedEffect(Unit) {
         viewModel.initContextData(context)
@@ -441,10 +446,73 @@ fun MenuScreen(
                 }
             }
 
-            // Settings & App Info Section
+            // Shop Profile & Receipt Details
             item {
                 Spacer(modifier = Modifier.height(10.dp))
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Storefront,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Shop Profile & Receipt",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                            IconButton(onClick = { showShopProfileDialog = true }) {
+                                Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit Shop Details")
+                            }
+                        }
+
+                        Text(
+                            text = "Shop Name: $shopNameState",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                        if (shopPhoneState.isNotBlank()) {
+                            Text(
+                                text = "Contact / UPI: $shopPhoneState",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            )
+                        } else {
+                            Text(
+                                text = "No phone number added",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.outline)
+                            )
+                        }
+                        Text(
+                            text = "This shop name appears on WhatsApp & printed receipts.",
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.outline)
+                        )
+                    }
+                }
+            }
+
+            // Settings & App Info Section
+            item {
+                Spacer(modifier = Modifier.height(6.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -459,7 +527,7 @@ fun MenuScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Fruit Billing POS • Production v${com.fruitbilling.app.BuildConfig.VERSION_NAME}",
+                            text = "Retail Billing POS • v${com.fruitbilling.app.BuildConfig.VERSION_NAME}",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
 
@@ -473,7 +541,7 @@ fun MenuScreen(
                                 try {
                                     val intent = Intent(Intent.ACTION_SENDTO).apply {
                                         data = Uri.parse("mailto:feedback-midnightcompiler01@gmail.com")
-                                        putExtra(Intent.EXTRA_SUBJECT, "Fruit Billing App Feedback")
+                                        putExtra(Intent.EXTRA_SUBJECT, "Retail Billing POS Feedback")
                                     }
                                     context.startActivity(Intent.createChooser(intent, "Send Feedback"))
                                 } catch (_: Exception) {}
@@ -505,6 +573,57 @@ fun MenuScreen(
                 }
                 Spacer(modifier = Modifier.height(24.dp))
             }
+        }
+
+        // Shop Profile Dialog
+        if (showShopProfileDialog) {
+            var tempName by remember { mutableStateOf(shopNameState) }
+            var tempPhone by remember { mutableStateOf(shopPhoneState) }
+
+            AlertDialog(
+                onDismissRequest = { showShopProfileDialog = false },
+                title = { Text("Edit Shop Profile") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = tempName,
+                            onValueChange = { tempName = it },
+                            label = { Text("Shop Name") },
+                            placeholder = { Text("e.g. My Retail Store") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = tempPhone,
+                            onValueChange = { tempPhone = it },
+                            label = { Text("Contact / UPI Number (Optional)") },
+                            placeholder = { Text("e.g. +91 98765 43210") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val cleanName = tempName.trim().ifBlank { com.fruitbilling.app.data.preferences.ShopPreferences.DEFAULT_SHOP_NAME }
+                            val cleanPhone = tempPhone.trim().takeIf { it.isNotBlank() }
+                            com.fruitbilling.app.data.preferences.ShopPreferences.setShopName(context, cleanName)
+                            com.fruitbilling.app.data.preferences.ShopPreferences.setShopPhone(context, cleanPhone)
+                            shopNameState = cleanName
+                            shopPhoneState = cleanPhone ?: ""
+                            showShopProfileDialog = false
+                        }
+                    ) {
+                        Text("Save")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showShopProfileDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
 
         // Add Dialog

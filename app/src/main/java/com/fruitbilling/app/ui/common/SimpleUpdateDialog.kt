@@ -61,7 +61,7 @@ fun SimpleUpdateDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "A new version of Fruit Billing is ready.\nUpdate now for the best experience.",
+                    text = "A new version of Retail Billing is ready.\nUpdate now for the best experience.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center

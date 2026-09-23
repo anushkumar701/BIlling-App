@@ -340,8 +340,26 @@ class BillRepository(
     }
 
     private suspend fun getNextSequentialBillNumber(): Int {
-        val maxUsed = billDao.getMaxUsedBillNumber() ?: 0
-        return maxUsed + 1
+        // Daily-resetting bill numbers: #001 resets each day.
+        // Internal bill IDs stay unique/sequential (Room auto-increment).
+        val prefs = com.fruitbilling.app.FruitBillingApp.instance
+            .getSharedPreferences("bill_number_prefs", android.content.Context.MODE_PRIVATE)
+        val todayKey = DateUtils.getTodayDateKey()
+        val storedDate = prefs.getString("last_bill_date", "") ?: ""
+        val lastCounter = prefs.getInt("daily_bill_counter", 0)
+
+        val nextCounter = if (storedDate == todayKey) {
+            lastCounter + 1
+        } else {
+            1  // New day → reset to 1
+        }
+
+        prefs.edit()
+            .putString("last_bill_date", todayKey)
+            .putInt("daily_bill_counter", nextCounter)
+            .apply()
+
+        return nextCounter
     }
 
     /**
@@ -364,6 +382,7 @@ class BillRepository(
                 productId = product?.id,
                 productNameSnapshot = product?.name,
                 unitPriceSnapshot = product?.price,
+                buyingCostSnapshot = product?.buyingCost,
                 unit = product?.unit,
                 quantityOrWeight = quantityOrWeight,
                 normalizedWeight = normalizedWeight,
@@ -503,6 +522,55 @@ class BillRepository(
             Result.success(Unit)
         } else {
             Result.failure(IllegalArgumentException("Bill not found"))
+        }
+    }
+
+    /**
+     * Updates a completed bill: replaces all items, recalculates total,
+     * and optionally updates final price and payment method.
+     * The bill ID and bill number remain unchanged.
+     */
+    suspend fun updateCompletedBill(
+        billId: Long,
+        newItems: List<BillItem>,
+        finalAmount: BigDecimal?,
+        paymentMethod: PaymentMethod?
+    ): Result<Bill> = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            val bill = billDao.getBillById(billId)
+                ?: return@withTransaction Result.failure(IllegalStateException("Bill not found."))
+
+            if (newItems.isEmpty()) {
+                return@withTransaction Result.failure(IllegalStateException("Bill cannot be empty."))
+            }
+
+            // Delete old items and insert new ones
+            billItemDao.deleteItemsForBill(billId)
+            for (item in newItems) {
+                billItemDao.insertItem(item.copy(id = 0, billId = billId))
+            }
+
+            // Recalculate total from new items
+            val newTotal = newItems.fold(BigDecimal.ZERO) { acc, item ->
+                acc.add(item.calculatedAmount)
+            }.setScale(2, RoundingMode.HALF_UP)
+
+            val updatedBill = bill.copy(
+                calculatedTotal = newTotal,
+                finalAmount = finalAmount?.setScale(2, RoundingMode.HALF_UP),
+                paymentMethod = paymentMethod
+            )
+            billDao.updateBill(updatedBill)
+
+            // Trigger cloud sync
+            try {
+                com.fruitbilling.app.data.backup.CloudBackupManager.triggerAsyncCloudSync(
+                    context = com.fruitbilling.app.FruitBillingApp.instance,
+                    database = database
+                )
+            } catch (_: Exception) {}
+
+            Result.success(updatedBill)
         }
     }
 }

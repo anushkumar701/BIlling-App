@@ -8,7 +8,7 @@ import java.math.BigDecimal
 @Entity(
     tableName = "bills",
     indices = [
-        Index(value = ["billNumber"], unique = true),
+        Index(value = ["billNumber"]),
         Index(value = ["status"]),
         Index(value = ["completedAt"]),
         Index(value = ["status", "completedAt"]),

@@ -268,11 +268,18 @@ object CalculatorEngine {
     }
 
     /**
-     * Appends a digit to an expression, preserving weight suffixes (e.g. 'g' or 'kg').
-     * If the expression ends with "50g" and '5' is pressed, it becomes "505g".
+     * Appends a digit (including '00') to an expression, preserving weight suffixes (e.g. 'g' or 'kg').
+     * If the expression ends with "50g" and '00' is pressed, it becomes "5000g".
      */
     fun appendDigit(expression: String, digit: String): String {
         val trimmed = expression.trimEnd()
+        if (digit == "00") {
+            if (trimmed.isEmpty() || trimmed == "0") return "0"
+            val lastChar = trimmed.lastOrNull()
+            if (lastChar == '×' || lastChar == '*' || lastChar == '÷' || lastChar == '/' || lastChar == '+' || lastChar == '-' || lastChar == '−') {
+                return "$expression 0."
+            }
+        }
         return when {
             trimmed.endsWith("kg", ignoreCase = true) -> {
                 val prefix = trimmed.dropLast(2)
@@ -283,11 +290,11 @@ object CalculatorEngine {
                 "$prefix$digit" + "g"
             }
             else -> {
-                var expr = expression + digit
-                if (digit == "0") {
-                    val lastSignificant = trimmed.lastOrNull()
-                    if (lastSignificant == '×' || lastSignificant == '*' ||
-                        lastSignificant == '÷' || lastSignificant == '/') {
+                val lastChar = trimmed.lastOrNull()
+                val isAfterOp = lastChar in listOf('×', '*', '÷', '/', '+', '-', '−')
+                var expr = if (isAfterOp) "$trimmed $digit" else expression + digit
+                if (digit == "0" && isAfterOp) {
+                    if (lastChar == '×' || lastChar == '*' || lastChar == '÷' || lastChar == '/') {
                         expr += "."
                     }
                 }
@@ -348,7 +355,8 @@ object CalculatorEngine {
                         val updatedNum = numStr.dropLast(1).trimEnd('.')
                         "$beforeNum${updatedNum}kg"
                     } else {
-                        // Only 1 digit left (e.g. "1kg"), removing it removes the whole token
+                        // Only 1 digit left (e.g. "1kg") — remove just the digit,
+                        // leave the expression at the operator so user can type a new weight
                         beforeNum.trimEnd()
                     }
                 } else {
@@ -366,7 +374,8 @@ object CalculatorEngine {
                         val updatedNum = numStr.dropLast(1).trimEnd('.')
                         "$beforeNum${updatedNum}g"
                     } else {
-                        // Only 1 digit left (e.g. "5g"), removing it removes the whole token
+                        // Only 1 digit left (e.g. "5g") — remove just the digit,
+                        // leave the expression at the operator so user can type a new weight
                         beforeNum.trimEnd()
                     }
                 } else {

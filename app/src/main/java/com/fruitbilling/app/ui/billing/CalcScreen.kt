@@ -35,17 +35,21 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -82,6 +86,9 @@ fun CalcScreen(
 
     // Keep screen on while billing; auto-resets after 5 min
     val context = LocalContext.current
+    var keypadHeightDp by remember {
+        mutableFloatStateOf(com.fruitbilling.app.data.preferences.CalcPreferences.getKeypadHeightDp(context))
+    }
     LaunchedEffect(uiState) {
         val window = (context as? Activity)?.window
         window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -157,7 +164,14 @@ fun CalcScreen(
                 onPaymentMethodSelected = viewModel::onPaymentMethodSelected
             )
 
-            HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+            // ── Adjustable Keypad Sizing Handle (S / M / L presets + drag) ───
+            KeypadResizeHandle(
+                currentHeightDp = keypadHeightDp,
+                onHeightChanged = { newHeight ->
+                    keypadHeightDp = newHeight
+                    com.fruitbilling.app.data.preferences.CalcPreferences.setKeypadHeightDp(context, newHeight)
+                }
+            )
 
             // ── 4. Expression bar (big number + live preview + product badge) ─
             CalcExpressionBar(
@@ -178,7 +192,9 @@ fun CalcScreen(
                 onOperatorClicked = viewModel::onOperator,
                 onDecimalClicked = viewModel::onDecimal,
                 onEqualsClicked = viewModel::onEquals,
-                onBackspace = viewModel::onBackspace
+                onBackspace = viewModel::onBackspace,
+                onClearAll = viewModel::onClearExpression,
+                keyHeight = keypadHeightDp.dp
             )
 
             // ── 6. Save Bill strip ───────────────────────────────────────────
@@ -211,16 +227,18 @@ fun CalcScreen(
             )
         }
 
-        if (uiState.isSaveBillPromptOpen && uiState.currentBill != null) {
-            SaveBillDialog(
-                billWithItems = uiState.currentBill!!,
-                initialFinalPrice = uiState.finalPriceInput,
-                initialPaymentMethod = uiState.selectedPaymentMethod,
-                isSaving = uiState.isSaving,
-                onConfirmSave = viewModel::onConfirmSaveBill,
-                onDismiss = viewModel::onDismissSaveBillPrompt,
-                onDeleteItem = viewModel::onDirectDeleteItem
-            )
+        if (uiState.isSaveBillPromptOpen) {
+            uiState.currentBill?.let { bill ->
+                SaveBillDialog(
+                    billWithItems = bill,
+                    initialFinalPrice = uiState.finalPriceInput,
+                    initialPaymentMethod = uiState.selectedPaymentMethod,
+                    isSaving = uiState.isSaving,
+                    onConfirmSave = viewModel::onConfirmSaveBill,
+                    onDismiss = viewModel::onDismissSaveBillPrompt,
+                    onDeleteItem = viewModel::onDirectDeleteItem
+                )
+            }
         }
     }
 }
@@ -416,3 +434,70 @@ fun CalcSaveStrip(
         }
     }
 }
+
+@Composable
+private fun KeypadResizeHandle(
+    currentHeightDp: Float,
+    onHeightChanged: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .pointerInput(Unit) {
+                detectVerticalDragGestures { _, dragAmount ->
+                    // Dragging up increases keypad height, dragging down decreases keypad height
+                    val newHeight = currentHeightDp - (dragAmount / 2.5f)
+                    onHeightChanged(newHeight.coerceIn(38f, 65f))
+                }
+            }
+            .padding(vertical = 3.dp, horizontal = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Preset chips: S (Compact), M (Standard), L (Large Rush)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                "S (Compact)" to com.fruitbilling.app.data.preferences.CalcPreferences.COMPACT_HEIGHT_DP,
+                "M" to com.fruitbilling.app.data.preferences.CalcPreferences.DEFAULT_HEIGHT_DP,
+                "L (Rush)" to com.fruitbilling.app.data.preferences.CalcPreferences.LARGE_HEIGHT_DP
+            ).forEach { (label, presetHeight) ->
+                val isSelected = kotlin.math.abs(currentHeightDp - presetHeight) < 4f
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                        .clickable { onHeightChanged(presetHeight) }
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 10.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        // Center drag pill
+        Box(
+            modifier = Modifier
+                .width(36.dp)
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+        )
+
+        Text(
+            text = "${currentHeightDp.toInt()}dp",
+            fontSize = 10.sp,
+            color = MaterialTheme.colorScheme.outline
+        )
+    }
+}
+

@@ -69,7 +69,7 @@ object OtaUpdateManager {
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 setRequestProperty("Accept", "application/vnd.github.v3+json")
-                setRequestProperty("User-Agent", "FruitBillingApp-${BuildConfig.VERSION_NAME}")
+                setRequestProperty("User-Agent", "RetailBillingApp-${BuildConfig.VERSION_NAME}")
                 connectTimeout = 8000
                 readTimeout = 8000
             }
@@ -133,25 +133,43 @@ object OtaUpdateManager {
         return false
     }
 
+    fun getDownloadedApkFile(context: Context, versionTag: String): File {
+        val appContext = context.applicationContext
+        val fileName = "RetailBilling_${versionTag.replace(".", "_")}.apk"
+        return File(
+            appContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+            fileName
+        )
+    }
+
+    fun isApkReadyToInstall(context: Context, versionTag: String): Boolean {
+        val file = getDownloadedApkFile(context, versionTag)
+        return file.exists() && file.length() > 500 * 1024L
+    }
+
     /**
      * Downloads the APK file using Android's DownloadManager and prompts for installation.
+     * If the APK has already been pre-downloaded silently, it triggers installation immediately.
      */
     fun startDownloadAndInstall(context: Context, downloadUrl: String, versionTag: String) {
+        val destinationFile = getDownloadedApkFile(context, versionTag)
+
+        // Instant install if already downloaded in background
+        if (isApkReadyToInstall(context, versionTag)) {
+            installApk(context.applicationContext, destinationFile)
+            return
+        }
+
         if (!downloadUrl.startsWith("https://", ignoreCase = true)) {
             android.widget.Toast.makeText(context, "Invalid or insecure download URL", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
 
         val appContext = context.applicationContext
-        val fileName = "FruitBilling_${versionTag.replace(".", "_")}.apk"
-        val destinationFile = File(
-            appContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
-            fileName
-        )
         if (destinationFile.exists()) destinationFile.delete()
 
         val request = DownloadManager.Request(Uri.parse(downloadUrl)).apply {
-            setTitle("Fruit Billing App Update ($versionTag)")
+            setTitle("Retail Billing POS Update ($versionTag)")
             setDescription("Downloading latest version…")
             setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             setDestinationUri(Uri.fromFile(destinationFile))

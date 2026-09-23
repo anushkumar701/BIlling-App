@@ -21,7 +21,7 @@ import androidx.room.migration.Migration
 
 @Database(
     entities = [Product::class, Bill::class, BillItem::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -74,6 +74,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE products ADD COLUMN buyingCost TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE bill_items ADD COLUMN buyingCostSnapshot TEXT DEFAULT NULL")
+                db.execSQL("DROP INDEX IF EXISTS index_bills_billNumber")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_bills_billNumber ON bills(billNumber)")
+            }
+        }
+
         fun getDatabase(context: Context, scope: CoroutineScope): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -81,7 +90,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "fruit_billing_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .addCallback(AppDatabaseCallback(scope))
                     .build()

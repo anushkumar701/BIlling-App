@@ -74,6 +74,13 @@ interface BillDao {
     """)
     suspend fun getMaxUsedBillNumber(): Int?
 
+    @Query("""
+        SELECT MAX(billNumber) FROM bills 
+        WHERE (createdAt BETWEEN :startOfDay AND :endOfDay) 
+           OR (completedAt IS NOT NULL AND completedAt BETWEEN :startOfDay AND :endOfDay)
+    """)
+    suspend fun getMaxBillNumberForDateRange(startOfDay: Long, endOfDay: Long): Int?
+
     @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND completedAt BETWEEN :startOfDay AND :endOfDay")
     fun getTodayCompletedBills(startOfDay: Long, endOfDay: Long): Flow<List<Bill>>
 

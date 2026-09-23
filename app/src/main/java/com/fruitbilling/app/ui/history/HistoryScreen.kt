@@ -37,6 +37,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,10 +73,19 @@ fun HistoryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+
+    // Collect snackbar messages
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.snackbarMessages.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 CenterAlignedTopAppBar(
@@ -158,7 +168,7 @@ fun HistoryScreen(
             }
         }
 
-        // Bill Detail Dialog (with retrospective Cash/UPI assignment and WhatsApp share)
+        // Bill Detail Dialog (with retrospective Cash/UPI assignment, WhatsApp share, and Edit)
         uiState.selectedBillForDetail?.let { selectedBill ->
             BillDetailDialog(
                 billWithItems = selectedBill,
@@ -166,7 +176,19 @@ fun HistoryScreen(
                     viewModel.onUpdatePaymentMethod(selectedBill.bill.id, method)
                 },
                 onDeleteBill = viewModel::onDeleteBill,
+                onEditBill = viewModel::onEditBill,
                 onDismiss = viewModel::onDismissDetail
+            )
+        }
+
+        // Edit Completed Bill Dialog
+        uiState.editingBill?.let { editingBill ->
+            EditCompletedBillDialog(
+                billWithItems = editingBill,
+                onSave = { billId, items, finalAmount, paymentMethod ->
+                    viewModel.onSaveEditedBill(billId, items, finalAmount, paymentMethod)
+                },
+                onDismiss = viewModel::onDismissEditBill
             )
         }
     }

@@ -34,6 +34,7 @@ data class BillItem(
     val unit: ProductUnit? = null,
     val quantityOrWeight: BigDecimal? = null,
     val normalizedWeight: BigDecimal? = null,
+    val buyingCostSnapshot: BigDecimal? = null,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     /**

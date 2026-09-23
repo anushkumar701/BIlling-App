@@ -40,4 +40,8 @@ object DateUtils {
     fun formatDetailedTimestamp(timestamp: Long): String {
         return getFullDateFormat().format(Date(timestamp))
     }
+
+    fun getTodayDateKey(): String {
+        return SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
+    }
 }
