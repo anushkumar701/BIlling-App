@@ -1,0 +1,49 @@
+{
+  "name": "fruit-grocery-pos-desktop",
+  "version": "1.0.0",
+  "description": "Lightning-Fast Fruit & Grocery Billing POS for Desktop (Windows, Mac, Linux)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:linux": "electron-builder --linux deb AppImage",
+    "build:win": "electron-builder --windows nsis",
+    "build:mac": "electron-builder --mac dmg",
+    "build:all": "electron-builder -mwl"
+  },
+  "keywords": [
+    "pos",
+    "billing",
+    "retail",
+    "grocery",
+    "offline-pos",
+    "receipt-printer"
+  ],
+  "author": "Fruit Billing POS Team",
+  "license": "MIT",
+  "build": {
+    "appId": "com.fruitbilling.pos.desktop",
+    "productName": "Fruit & Grocery POS",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "assets/icon.png"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "assets/icon.png",
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "target": ["deb", "AppImage"],
+      "icon": "assets/icon.png",
+      "category": "Office"
+    }
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}

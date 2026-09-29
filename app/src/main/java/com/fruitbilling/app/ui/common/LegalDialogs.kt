@@ -18,14 +18,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.ui.platform.LocalContext
+import com.fruitbilling.app.data.preferences.ShopPreferences
+import com.fruitbilling.app.util.AppLocalization
+
 @Composable
-fun TermsOfServiceDialog(onDismiss: () -> Unit) {
+fun TermsOfServiceDialog(
+    langCode: String? = null,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val activeLang = langCode ?: ShopPreferences.getAppLanguage(context)
+    val terms = AppLocalization.getTerms(activeLang)
+
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(16.dp),
         title = {
             Text(
-                text = "Fruit Billing POS — Terms & Agreement",
+                text = terms.title,
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
         },
@@ -38,59 +49,21 @@ fun TermsOfServiceDialog(onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Welcome to Fruit Billing POS. By using this point-of-sale application, you agree to the following merchant terms and operational guidelines:",
+                    text = terms.intro,
                     style = MaterialTheme.typography.bodyMedium
                 )
 
-                Text(
-                    text = "1. Offline-First POS Architecture",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = "Fruit Billing POS operates as a high-speed, offline-first cashier terminal. All daily sales, bill calculations, pricing data, customer phone numbers, and fruit catalogs are stored locally on your device in a secure SQLite database. The POS operates fully without an active internet connection.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Text(
-                    text = "2. Google Cloud Sync & Multi-Account Isolation",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = "Google Account sign-in enables automatic, secure Google Cloud synchronization so your business data can be restored across device reinstalls. Each Google account functions as an isolated store workspace; switching accounts safely preserves previous data and loads only the matching account's sales records without cross-account data collapse.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Text(
-                    text = "3. Merchant Responsibility for Billing & Pricing",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = "You as the merchant/cashier hold sole discretion and responsibility for managing fruit unit prices (per kg, piece, or box), entering scale weights, applying round-offs or manual discounts, collecting payments (Cash / UPI), and issuing receipts to customers.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Text(
-                    text = "4. Data Ownership & Portability",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = "You retain 100% ownership of your business transactions. You may export your sales history to CSV spreadsheets, generate encrypted JSON backup files, share receipts via WhatsApp, or delete records at any time.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Text(
-                    text = "5. Service & Support",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = "For feature suggestions, merchant inquiries, or technical support, contact the developer at feedback-midnightcompiler01@gmail.com.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                terms.sections.forEach { (heading, body) ->
+                    Text(
+                        text = heading,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = body,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         },
         confirmButton = {
@@ -98,7 +71,7 @@ fun TermsOfServiceDialog(onDismiss: () -> Unit) {
                 onClick = onDismiss,
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("I Understand & Agree")
+                Text(terms.acceptButton)
             }
         }
     )

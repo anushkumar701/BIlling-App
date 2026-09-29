@@ -32,17 +32,26 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
+import androidx.compose.ui.platform.LocalContext
+import com.fruitbilling.app.data.preferences.ShopPreferences
+import com.fruitbilling.app.util.AppLocalization
+
 /**
  * First-launch onboarding modal:
  * Welcomes the vendor, offers Google login for instant automatic backup restore,
  * provides an offline guest option, and ensures Google Play Store compliance
- * by displaying Terms of Service & Privacy Policy.
+ * by displaying Terms of Service & Privacy Policy in the user's selected language.
  */
 @Composable
 fun OnboardingDialog(
+    langCode: String? = null,
     onSignInWithGoogle: () -> Unit,
     onContinueOffline: () -> Unit
 ) {
+    val context = LocalContext.current
+    val activeLang = langCode ?: ShopPreferences.getAppLanguage(context)
+    val content = remember(activeLang) { AppLocalization.getOnboarding(activeLang) }
+
     var showTerms by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
 
@@ -62,9 +71,8 @@ fun OnboardingDialog(
                     .padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Clean text header — no emoji/logo
                 Text(
-                    text = "Fruit Billing",
+                    text = content.welcomeTitle,
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -75,7 +83,7 @@ fun OnboardingDialog(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "Fast, offline-first POS for fruit stalls & market vendors",
+                    text = content.welcomeSubtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -95,9 +103,9 @@ fun OnboardingDialog(
                         modifier = Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        FeatureRow("⚡", "Instant pricing for any weight")
-                        FeatureRow("💾", "All data stored safely on your device")
-                        FeatureRow("☁️", "Sign in to auto-restore your data")
+                        FeatureRow("⚡", content.feature1)
+                        FeatureRow("🤝", content.feature2)
+                        FeatureRow("🖨️", content.feature3)
                     }
                 }
 
@@ -115,7 +123,7 @@ fun OnboardingDialog(
                     )
                 ) {
                     Text(
-                        text = "Sign in with Google",
+                        text = content.googleSignIn,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp
                     )
@@ -132,7 +140,7 @@ fun OnboardingDialog(
                         .height(50.dp)
                 ) {
                     Text(
-                        text = "Start Billing Offline",
+                        text = content.continueOffline,
                         fontWeight = FontWeight.Medium,
                         fontSize = 15.sp
                     )
@@ -146,7 +154,7 @@ fun OnboardingDialog(
 
                 // Terms & Privacy
                 Text(
-                    text = "By continuing, you agree to our",
+                    text = content.agreementNotice,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline,
                     textAlign = TextAlign.Center
@@ -157,7 +165,7 @@ fun OnboardingDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Terms & Conditions",
+                        text = content.termsLink,
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold
@@ -170,7 +178,7 @@ fun OnboardingDialog(
                         color = MaterialTheme.colorScheme.outline
                     )
                     Text(
-                        text = "Privacy Policy",
+                        text = content.privacyLink,
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold
@@ -183,7 +191,7 @@ fun OnboardingDialog(
     }
 
     if (showTerms) {
-        TermsOfServiceDialog(onDismiss = { showTerms = false })
+        TermsOfServiceDialog(langCode = activeLang, onDismiss = { showTerms = false })
     }
     if (showPrivacy) {
         PrivacyPolicyDialog(onDismiss = { showPrivacy = false })

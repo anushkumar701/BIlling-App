@@ -17,45 +17,57 @@ import java.util.Locale
  * of duplicated business logic the project spec calls out to avoid.
  */
 object MoneyUtils {
-    private val currencyFormat = (NumberFormat.getCurrencyInstance(Locale("en", "IN")) as DecimalFormat).apply {
-        currency = java.util.Currency.getInstance("INR")
+    @Volatile
+    var currencySymbol: String = "₹"
+        private set
+
+    @Volatile
+    var currencyCode: String = "INR"
+        private set
+
+    fun setCurrency(symbol: String, code: String) {
+        currencySymbol = symbol.trim().ifBlank { "₹" }
+        currencyCode = code.trim().uppercase().ifBlank { "INR" }
+    }
+
+    private val numberFormat = (NumberFormat.getNumberInstance(Locale.getDefault()) as DecimalFormat).apply {
         minimumFractionDigits = 2
         maximumFractionDigits = 2
     }
 
-    private val wholeCurrencyFormat = (NumberFormat.getCurrencyInstance(Locale("en", "IN")) as DecimalFormat).apply {
-        currency = java.util.Currency.getInstance("INR")
+    private val wholeNumberFormat = (NumberFormat.getNumberInstance(Locale.getDefault()) as DecimalFormat).apply {
         minimumFractionDigits = 0
         maximumFractionDigits = 0
     }
 
     fun formatPrice(amount: BigDecimal?): String {
-        if (amount == null) return "₹0.00"
-        return currencyFormat.format(amount.setScale(2, RoundingMode.HALF_UP))
+        if (amount == null) return "${currencySymbol}0.00"
+        val scaled = amount.setScale(2, RoundingMode.HALF_UP)
+        return "$currencySymbol${numberFormat.format(scaled)}"
     }
 
     fun formatWholePrice(amount: BigDecimal?): String {
-        if (amount == null) return "₹0"
+        if (amount == null) return "${currencySymbol}0"
         val scaled = amount.setScale(2, RoundingMode.HALF_UP)
         return if (scaled.remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) == 0) {
-            wholeCurrencyFormat.format(scaled)
+            "$currencySymbol${wholeNumberFormat.format(scaled)}"
         } else {
-            currencyFormat.format(scaled)
+            "$currencySymbol${numberFormat.format(scaled)}"
         }
     }
 
     /**
      * Generates dynamic, context-aware cash tender note suggestions based on bill total.
      * Never suggests amounts lower than the bill amount.
-     * Displays actual money amounts (e.g., [₹760, ₹800, ₹1000, ₹2000]).
+     * Displays actual money amounts (e.g., [$760, $800, $1000, $2000]).
      */
     fun getCashTenderSuggestions(amount: BigDecimal): List<Pair<String, String>> {
         val total = amount.setScale(0, RoundingMode.CEILING).toInt()
-        if (total <= 0) return listOf("₹0" to "0")
+        if (total <= 0) return listOf("${currencySymbol}0" to "0")
 
         val suggestions = mutableListOf<Pair<String, String>>()
         // Show exact money amount instead of "Exact" text (§human counter speed)
-        suggestions.add("₹$total" to total.toString())
+        suggestions.add("$currencySymbol$total" to total.toString())
 
         val candidates = sortedSetOf<Int>()
 
@@ -81,7 +93,7 @@ object MoneyUtils {
 
         val validCandidates = candidates.filter { it > total }.take(3)
         for (cand in validCandidates) {
-            suggestions.add("₹$cand" to cand.toString())
+            suggestions.add("$currencySymbol$cand" to cand.toString())
         }
 
         return suggestions
@@ -89,7 +101,7 @@ object MoneyUtils {
 
     /**
      * Generates smart rounded final price / discount suggestions.
-     * Cashiers often round down slightly to close bills quickly (e.g. ₹1304 -> ₹1300 or ₹1290).
+     * Cashiers often round down slightly to close bills quickly (e.g. 1304 -> 1300 or 1290).
      * Returns list of Pair(DisplayLabel, ValueToSet).
      */
     fun getFinalPriceSuggestions(amount: BigDecimal): List<Pair<String, String>> {
@@ -105,7 +117,7 @@ object MoneyUtils {
         } else {
             scaled.stripTrailingZeros().toPlainString()
         }
-        suggestions.add("₹$exactStr (Exact)" to exactStr)
+        suggestions.add("$currencySymbol$exactStr (Exact)" to exactStr)
 
         val seenValues = mutableSetOf<String>()
         seenValues.add(exactStr)
@@ -117,11 +129,11 @@ object MoneyUtils {
                 if (seenValues.add(str)) {
                     val discount = scaled.subtract(BigDecimal(targetVal))
                     val discountStr = if (discount.remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) == 0) {
-                        "₹${discount.toInt()}"
+                        "$currencySymbol${discount.toInt()}"
                     } else {
-                        "₹${discount.stripTrailingZeros().toPlainString()}"
+                        "$currencySymbol${discount.stripTrailingZeros().toPlainString()}"
                     }
-                    suggestions.add("₹$targetVal (-$discountStr)" to str)
+                    suggestions.add("$currencySymbol$targetVal (-$discountStr)" to str)
                 }
             }
         }

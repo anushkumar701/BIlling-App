@@ -49,6 +49,7 @@ import com.fruitbilling.app.ui.billing.BillingScreen
 import com.fruitbilling.app.ui.billing.BillingViewModel
 import com.fruitbilling.app.ui.billing.BillingViewModelFactory
 import com.fruitbilling.app.ui.billing.CalcScreen
+import com.fruitbilling.app.ui.common.LanguageSelectionDialog
 import com.fruitbilling.app.ui.common.OnboardingDialog
 import com.fruitbilling.app.ui.common.SimpleUpdateDialog
 import com.fruitbilling.app.ui.history.HistoryScreen
@@ -94,6 +95,9 @@ fun AppNavigation(
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val isLangSet = remember { com.fruitbilling.app.data.preferences.ShopPreferences.isLanguageSelected(context) }
+    var isLanguageSelectionOpen by remember { mutableStateOf(!isLangSet) }
+    var currentLanguageCode by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getAppLanguage(context)) }
     var isOnboardingOpen by remember { mutableStateOf(!GoogleAuthManager.isOnboardingCompleted(context)) }
     var launchUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
     var isSurveyDialogOpen by remember { mutableStateOf(false) }
@@ -272,8 +276,18 @@ fun AppNavigation(
             }
         }
 
-        if (isOnboardingOpen) {
+        if (isLanguageSelectionOpen) {
+            LanguageSelectionDialog(
+                initialLanguage = currentLanguageCode,
+                initialCurrencyCode = com.fruitbilling.app.data.preferences.ShopPreferences.getCurrencyCode(context),
+                onConfirmed = { chosenLang ->
+                    currentLanguageCode = chosenLang
+                    isLanguageSelectionOpen = false
+                }
+            )
+        } else if (isOnboardingOpen) {
             OnboardingDialog(
+                langCode = currentLanguageCode,
                 onSignInWithGoogle = {
                     onboardingSignInLauncher.launch(GoogleAuthManager.getSignInIntent(context))
                 },

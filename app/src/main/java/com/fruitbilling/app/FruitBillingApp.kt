@@ -32,6 +32,12 @@ class FruitBillingApp : Application() {
         super.onCreate()
         instance = this
 
+        // Initialize active currency from shop preferences
+        com.fruitbilling.app.util.MoneyUtils.setCurrency(
+            com.fruitbilling.app.data.preferences.ShopPreferences.getCurrencySymbol(this),
+            com.fruitbilling.app.data.preferences.ShopPreferences.getCurrencyCode(this)
+        )
+
         // Ensure default products exist on first launch & check daily backup (§17)
         applicationScope.launch(Dispatchers.IO) {
             productRepository.ensureDefaultProducts()
