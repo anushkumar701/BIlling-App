@@ -19,7 +19,10 @@ Download the ready-to-run applications for mobile and desktop:
 | 🪟 **Windows Desktop POS** | `.exe` (79 MB) | [Download FruitBilling-v1.0-Windows.exe](https://github.com/anushkumar701/BIlling-App/releases/download/v1.0/FruitBilling-v1.0-Windows.exe) | Windows 10/11 (Single-Click Portable Executable) |
 | 🪟 **Windows Portable Package** | `.zip` (110 MB) | [Download FruitBilling-v1.0-Windows-Portable.zip](https://github.com/anushkumar701/BIlling-App/releases/download/v1.0/FruitBilling-v1.0-Windows-Portable.zip) | Extract & Run `Fruit & Grocery POS.exe` |
 
-📦 **All GitHub Releases**: [Browse Releases](https://github.com/anushkumar701/BIlling-App/releases)
+> 💡 **How to download on GitHub**:
+> 1. Visit the [Official v1.0 Release Page](https://github.com/anushkumar701/BIlling-App/releases/tag/v1.0).
+> 2. Scroll to the **Assets** section at the bottom of the release.
+> 3. Click directly on **`app-release.apk`** or **`FruitBilling-v1.0-Windows.exe`** to start downloading. (If clicking from markdown doesn't start, right-click the link and select **"Save link as..."**).
 
 
 ---
