@@ -96,6 +96,18 @@ fun AppNavigation(
     val coroutineScope = rememberCoroutineScope()
     var isOnboardingOpen by remember { mutableStateOf(!GoogleAuthManager.isOnboardingCompleted(context)) }
     var launchUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
+    var isSurveyDialogOpen by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        com.fruitbilling.app.data.preferences.SurveyPreferences.recordAppLaunch(context)
+    }
+
+    LaunchedEffect(isOnboardingOpen) {
+        if (!isOnboardingOpen && com.fruitbilling.app.data.preferences.SurveyPreferences.shouldPromptSurvey(context)) {
+            kotlinx.coroutines.delay(2000)
+            isSurveyDialogOpen = true
+        }
+    }
     val driveConsentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
@@ -284,6 +296,12 @@ fun AppNavigation(
                     OtaUpdateManager.dismissUpdateForToday(context)
                     launchUpdateInfo = null
                 }
+            )
+        }
+
+        if (isSurveyDialogOpen) {
+            com.fruitbilling.app.ui.common.AppSurveyDialog(
+                onDismiss = { isSurveyDialogOpen = false }
             )
         }
     }

@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -79,9 +80,12 @@ fun HistoryScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val deletedBills by viewModel.deletedBills.collectAsState()
+    val deletedBillsCount by viewModel.deletedBillsCount.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     var showExportMenu by remember { mutableStateOf(false) }
+    var showRecycleBinDialog by remember { mutableStateOf(false) }
 
     // Collect snackbar messages
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -104,6 +108,28 @@ fun HistoryScreen(
                         )
                     },
                     actions = {
+                        // Recycle Bin Action Button
+                        IconButton(onClick = { showRecycleBinDialog = true }) {
+                            androidx.compose.material3.BadgedBox(
+                                badge = {
+                                    if (deletedBillsCount > 0) {
+                                        androidx.compose.material3.Badge(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            contentColor = MaterialTheme.colorScheme.onError
+                                        ) {
+                                            Text("$deletedBillsCount")
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Recycle Bin",
+                                    tint = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
+                        }
+
                         if (uiState.completedBills.isNotEmpty()) {
                             Box {
                                 IconButton(onClick = { showExportMenu = true }) {
@@ -220,6 +246,17 @@ fun HistoryScreen(
                     viewModel.onSaveEditedBill(billId, items, finalAmount, paymentMethod, customerName)
                 },
                 onDismiss = viewModel::onDismissEditBill
+            )
+        }
+
+        // Recycle Bin Dialog
+        if (showRecycleBinDialog) {
+            RecycleBinDialog(
+                deletedBills = deletedBills,
+                onRestoreBill = { billId -> viewModel.onRestoreBill(billId) },
+                onPermanentDeleteBill = { billId -> viewModel.onPermanentDeleteBill(billId) },
+                onEmptyRecycleBin = { viewModel.onEmptyRecycleBin() },
+                onDismiss = { showRecycleBinDialog = false }
             )
         }
     }

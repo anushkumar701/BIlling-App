@@ -512,7 +512,56 @@ class BillRepository(
         }
     }
 
-    suspend fun deleteBill(id: Long): Result<Unit> = withContext(Dispatchers.IO) {
+    fun getDeletedBills(): Flow<List<BillWithItems>> = billDao.getDeletedBills()
+
+    fun getDeletedBillsCount(): Flow<Int> = billDao.getDeletedBillsCount()
+
+    /**
+     * Soft deletes a bill by moving it to the Recycle Bin (Trash).
+     * It remains recoverable for 30 days before being automatically purged.
+     */
+    suspend fun moveToTrash(id: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        val rows = billDao.softDeleteBill(id, System.currentTimeMillis())
+        if (rows > 0) {
+            try {
+                com.fruitbilling.app.data.backup.CloudBackupManager.triggerAsyncCloudSync(
+                    context = com.fruitbilling.app.FruitBillingApp.instance,
+                    database = database
+                )
+            } catch (_: Exception) {}
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalArgumentException("Bill not found"))
+        }
+    }
+
+    /**
+     * Convenience alias for moveToTrash.
+     */
+    suspend fun deleteBill(id: Long): Result<Unit> = moveToTrash(id)
+
+    /**
+     * Restores a soft-deleted bill from the Recycle Bin back to active completed history.
+     */
+    suspend fun restoreBill(id: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        val rows = billDao.restoreBill(id)
+        if (rows > 0) {
+            try {
+                com.fruitbilling.app.data.backup.CloudBackupManager.triggerAsyncCloudSync(
+                    context = com.fruitbilling.app.FruitBillingApp.instance,
+                    database = database
+                )
+            } catch (_: Exception) {}
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalArgumentException("Bill not found in trash"))
+        }
+    }
+
+    /**
+     * Permanently deletes a bill from the database.
+     */
+    suspend fun permanentDeleteBill(id: Long): Result<Unit> = withContext(Dispatchers.IO) {
         val rows = billDao.deleteBillById(id)
         if (rows > 0) {
             try {
@@ -525,6 +574,29 @@ class BillRepository(
         } else {
             Result.failure(IllegalArgumentException("Bill not found"))
         }
+    }
+
+    /**
+     * Empties the entire Recycle Bin.
+     */
+    suspend fun emptyTrash(): Result<Unit> = withContext(Dispatchers.IO) {
+        billDao.emptyTrash()
+        try {
+            com.fruitbilling.app.data.backup.CloudBackupManager.triggerAsyncCloudSync(
+                context = com.fruitbilling.app.FruitBillingApp.instance,
+                database = database
+            )
+        } catch (_: Exception) {}
+        Result.success(Unit)
+    }
+
+    /**
+     * Automatically purges bills that have been in the Recycle Bin for more than the specified retention days (default 30 days).
+     */
+    suspend fun purgeExpiredDeletedBills(retentionDays: Int = 30): Result<Int> = withContext(Dispatchers.IO) {
+        val cutoff = System.currentTimeMillis() - (retentionDays.toLong() * 24L * 60L * 60L * 1000L)
+        val purgedCount = billDao.purgeExpiredDeletedBills(cutoff)
+        Result.success(purgedCount)
     }
 
     /**

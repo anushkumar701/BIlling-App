@@ -319,13 +319,13 @@ fun BillDetailDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
             title = {
                 Text(
-                    text = "Delete Bill ${bill.formattedBillNumber}?",
+                    text = "Move Bill ${bill.formattedBillNumber} to Recycle Bin?",
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error
                 )
             },
             text = {
-                Text("Are you sure you want to delete this bill? This action cannot be undone and will remove it from sales history.")
+                Text("This bill will be moved to the Recycle Bin. You can view or restore it anytime within 30 days before it is automatically permanently deleted.")
             },
             confirmButton = {
                 Button(
@@ -336,7 +336,7 @@ fun BillDetailDialog(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete Bill", fontWeight = FontWeight.Bold)
+                    Text("Move to Trash", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {

@@ -85,6 +85,7 @@ fun MenuScreen(
     var showTermsDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showShopProfileDialog by remember { mutableStateOf(false) }
+    var showSurveyDialog by remember { mutableStateOf(false) }
     var shopNameState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getShopName(context)) }
     var shopPhoneState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getShopPhone(context) ?: "") }
 
@@ -510,6 +511,42 @@ fun MenuScreen(
                 }
             }
 
+            // User Survey & Feedback Card (No login required)
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showSurveyDialog = true },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "💬", fontSize = 26.sp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "App Survey & Feedback",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "Tell us how to improve • 1-min quick survey without login",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
             // Settings & App Info Section
             item {
                 Spacer(modifier = Modifier.height(6.dp))
@@ -735,6 +772,12 @@ fun MenuScreen(
 
         if (showPrivacyDialog) {
             PrivacyPolicyDialog(onDismiss = { showPrivacyDialog = false })
+        }
+
+        if (showSurveyDialog) {
+            com.fruitbilling.app.ui.common.AppSurveyDialog(
+                onDismiss = { showSurveyDialog = false }
+            )
         }
     }
 }

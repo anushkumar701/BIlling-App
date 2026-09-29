@@ -12,7 +12,8 @@ import java.math.BigDecimal
         Index(value = ["status"]),
         Index(value = ["completedAt"]),
         Index(value = ["status", "completedAt"]),
-        Index(value = ["paymentMethod"])
+        Index(value = ["paymentMethod"]),
+        Index(value = ["deletedAt"])
     ]
 )
 data class Bill(
@@ -25,11 +26,15 @@ data class Bill(
     val paymentMethod: PaymentMethod? = null,
     val customerName: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val completedAt: Long? = null
+    val completedAt: Long? = null,
+    val deletedAt: Long? = null
 ) {
     val formattedBillNumber: String
         get() = String.format(java.util.Locale.US, "#%03d", billNumber)
 
     val effectiveChargedAmount: BigDecimal
         get() = finalAmount ?: calculatedTotal
+
+    val isDeleted: Boolean
+        get() = deletedAt != null
 }

@@ -47,7 +47,7 @@ interface BillDao {
     suspend fun getLatestActiveBillSync(): BillWithItems?
 
     @Transaction
-    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' ORDER BY completedAt DESC, id DESC")
+    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND deletedAt IS NULL ORDER BY completedAt DESC, id DESC")
     fun getCompletedBills(): Flow<List<BillWithItems>>
 
     @Transaction
@@ -69,38 +69,40 @@ interface BillDao {
 
     @Query("""
         SELECT MAX(billNumber) FROM bills 
-        WHERE status = 'COMPLETED' 
+        WHERE (status = 'COMPLETED' AND deletedAt IS NULL)
         OR id IN (SELECT DISTINCT billId FROM bill_items)
     """)
     suspend fun getMaxUsedBillNumber(): Int?
 
     @Query("""
         SELECT MAX(billNumber) FROM bills 
-        WHERE (createdAt BETWEEN :startOfDay AND :endOfDay) 
+        WHERE deletedAt IS NULL AND (
+           (createdAt BETWEEN :startOfDay AND :endOfDay) 
            OR (completedAt IS NOT NULL AND completedAt BETWEEN :startOfDay AND :endOfDay)
+        )
     """)
     suspend fun getMaxBillNumberForDateRange(startOfDay: Long, endOfDay: Long): Int?
 
-    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND completedAt BETWEEN :startOfDay AND :endOfDay")
+    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND deletedAt IS NULL AND completedAt BETWEEN :startOfDay AND :endOfDay")
     fun getTodayCompletedBills(startOfDay: Long, endOfDay: Long): Flow<List<Bill>>
 
-    @Query("SELECT COUNT(*) FROM bills WHERE status = 'COMPLETED' AND completedAt BETWEEN :startOfDay AND :endOfDay")
+    @Query("SELECT COUNT(*) FROM bills WHERE status = 'COMPLETED' AND deletedAt IS NULL AND completedAt BETWEEN :startOfDay AND :endOfDay")
     fun getTodayCompletedBillsCount(startOfDay: Long, endOfDay: Long): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM bills WHERE status IN ('ACTIVE', 'HELD')")
     fun getActiveAndHeldBillsCount(): Flow<Int>
 
-    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' ORDER BY completedAt DESC")
+    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND deletedAt IS NULL ORDER BY completedAt DESC")
     fun getAllCompletedBills(): Flow<List<Bill>>
 
-    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' ORDER BY completedAt DESC")
+    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND deletedAt IS NULL ORDER BY completedAt DESC")
     suspend fun getAllCompletedBillsSync(): List<Bill>
 
-    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND completedAt >= :sinceTimestamp ORDER BY completedAt DESC")
+    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND deletedAt IS NULL AND completedAt >= :sinceTimestamp ORDER BY completedAt DESC")
     fun getCompletedBillsSince(sinceTimestamp: Long): Flow<List<Bill>>
 
     /** Bounded month query: only loads bills in the given time range to avoid unbounded memory usage */
-    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND completedAt BETWEEN :startMs AND :endMs ORDER BY completedAt DESC")
+    @Query("SELECT * FROM bills WHERE status = 'COMPLETED' AND deletedAt IS NULL AND completedAt BETWEEN :startMs AND :endMs ORDER BY completedAt DESC")
     fun getCompletedBillsInRange(startMs: Long, endMs: Long): Flow<List<Bill>>
 
     @Query("UPDATE bills SET paymentMethod = :method WHERE id = :billId")
@@ -114,6 +116,27 @@ interface BillDao {
 
     @Query("DELETE FROM bills WHERE id = :id")
     suspend fun deleteBillById(id: Long): Int
+
+    // ── Recycle Bin (Soft Delete & Restore) ──────────────────────────────
+
+    @Transaction
+    @Query("SELECT * FROM bills WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC")
+    fun getDeletedBills(): Flow<List<BillWithItems>>
+
+    @Query("SELECT COUNT(*) FROM bills WHERE deletedAt IS NOT NULL")
+    fun getDeletedBillsCount(): Flow<Int>
+
+    @Query("UPDATE bills SET deletedAt = :deletedAt WHERE id = :id")
+    suspend fun softDeleteBill(id: Long, deletedAt: Long): Int
+
+    @Query("UPDATE bills SET deletedAt = NULL WHERE id = :id")
+    suspend fun restoreBill(id: Long): Int
+
+    @Query("DELETE FROM bills WHERE deletedAt IS NOT NULL")
+    suspend fun emptyTrash(): Int
+
+    @Query("DELETE FROM bills WHERE deletedAt IS NOT NULL AND deletedAt < :cutoffTimestamp")
+    suspend fun purgeExpiredDeletedBills(cutoffTimestamp: Long): Int
 }
 
 

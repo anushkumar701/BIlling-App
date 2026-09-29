@@ -57,6 +57,18 @@ Ready to install on any Android phone, tablet, or handheld POS terminal running 
   * Custom line items on the fly with custom names and rates.
   * Hold/Resume bill drafts without losing current cart state.
 
+* 🗑️ **Recycle Bin for Deleted Bills (30-Day Auto-Purge & Restore):**
+  * When a bill is removed from History, it moves to the **Recycle Bin** instead of permanent deletion.
+  * Dedicated Recycle Bin viewer showing remaining days before auto-purge (`X days left`).
+  * 1-tap **Restore** to return any deleted bill back into active sales history.
+  * **Automatic 30-day purge**: Bills in the trash older than 30 days are automatically cleaned up in the background.
+  * Option to **Empty Bin** or permanently delete specific bills on demand.
+
+* 💬 **Login-Free In-App Survey & Feedback:**
+  * Clean, respectful feedback dialog automatically suggested after 2 days of app usage.
+  * Accessible anytime via **Menu ➔ App Survey & Feedback** (ideal when uninstalling or requesting features).
+  * 100% login-free: rating selector (1-5 stars), quick sentiment tags, and optional suggestion box.
+
 * 🔒 **100% Offline-First & Private:**
   * All transaction and product data stored securely on-device with SQLite/Room.
   * Optional Google Drive cloud backup and CSV export.

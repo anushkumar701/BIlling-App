@@ -11,9 +11,11 @@ import com.fruitbilling.app.data.repository.MonthSalesSummary
 import com.fruitbilling.app.data.repository.TodayStats
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 
@@ -96,7 +98,28 @@ class HistoryViewModel(
     private val _snackbarMessages = MutableSharedFlow<String>()
     val snackbarMessages = _snackbarMessages.asSharedFlow()
 
+    val deletedBills: StateFlow<List<BillWithItems>> = billRepository.getDeletedBills()
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList()
+        )
+
+    val deletedBillsCount: StateFlow<Int> = billRepository.getDeletedBillsCount()
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            0
+        )
+
     init {
+        // Automatically purge deleted bills older than 30 days
+        viewModelScope.launch {
+            try {
+                billRepository.purgeExpiredDeletedBills(30)
+            } catch (_: Exception) {}
+        }
+
         viewModelScope.launch {
             billRepository.completedBills.collect { bills ->
                 _uiState.value = _uiState.value.copy(completedBills = bills)
@@ -164,8 +187,38 @@ class HistoryViewModel(
 
     fun onDeleteBill(billId: Long) {
         viewModelScope.launch {
-            billRepository.deleteBill(billId)
+            billRepository.moveToTrash(billId)
             _uiState.value = _uiState.value.copy(selectedBillForDetail = null)
+            _snackbarMessages.emit("Bill moved to Recycle Bin (kept for 30 days)")
+        }
+    }
+
+    fun onRestoreBill(billId: Long) {
+        viewModelScope.launch {
+            val result = billRepository.restoreBill(billId)
+            result.onSuccess {
+                _snackbarMessages.emit("Bill restored to history ✅")
+            }.onFailure {
+                _snackbarMessages.emit("Could not restore bill: ${it.message}")
+            }
+        }
+    }
+
+    fun onPermanentDeleteBill(billId: Long) {
+        viewModelScope.launch {
+            val result = billRepository.permanentDeleteBill(billId)
+            result.onSuccess {
+                _snackbarMessages.emit("Bill permanently deleted")
+            }.onFailure {
+                _snackbarMessages.emit("Could not delete bill: ${it.message}")
+            }
+        }
+    }
+
+    fun onEmptyRecycleBin() {
+        viewModelScope.launch {
+            billRepository.emptyTrash()
+            _snackbarMessages.emit("Recycle Bin emptied")
         }
     }
 
