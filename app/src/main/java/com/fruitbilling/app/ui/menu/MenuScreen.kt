@@ -78,16 +78,19 @@ import com.fruitbilling.app.util.MoneyUtils
 @Composable
 fun MenuScreen(
     viewModel: MenuViewModel,
+    onLanguageChanged: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val strings = com.fruitbilling.app.util.LocalAppStrings.current
     var showTermsDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showShopProfileDialog by remember { mutableStateOf(false) }
     var showSurveyDialog by remember { mutableStateOf(false) }
     var showLanguageCurrencyDialog by remember { mutableStateOf(false) }
+    var languageDialogMode by remember { mutableStateOf(com.fruitbilling.app.ui.common.LanguageDialogMode.BOTH) }
     var shopNameState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getShopName(context)) }
     var shopPhoneState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getShopPhone(context) ?: "") }
     var currentLanguageState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getAppLanguage(context)) }
@@ -121,7 +124,7 @@ fun MenuScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "Menu & Products",
+                        text = strings.menuHeader,
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
                 },
@@ -530,7 +533,7 @@ fun MenuScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -541,30 +544,57 @@ fun MenuScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(text = "🌐", fontSize = 20.sp)
+                                Text(text = "🌐", fontSize = 22.sp)
                                 Text(
-                                    text = "Language & Currency",
+                                    text = strings.languageAndCurrency,
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                 )
                             }
-                            IconButton(onClick = { showLanguageCurrencyDialog = true }) {
+                            IconButton(onClick = {
+                                languageDialogMode = com.fruitbilling.app.ui.common.LanguageDialogMode.BOTH
+                                showLanguageCurrencyDialog = true
+                            }) {
                                 Icon(imageVector = Icons.Default.Edit, contentDescription = "Change Language or Currency")
                             }
                         }
 
                         val langDisplay = com.fruitbilling.app.util.AppLocalization.SUPPORTED_LANGUAGES.find { it.code == currentLanguageState }?.let { "${it.flagEmoji} ${it.nativeName} (${it.displayName})" } ?: currentLanguageState
                         Text(
-                            text = "Active Language: $langDisplay",
+                            text = "${strings.activeLanguage}: $langDisplay",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                         )
                         Text(
-                            text = "Currency: $currentCurrencyState ($currentSymbolState)",
+                            text = "${strings.activeCurrency}: $currentCurrencyState ($currentSymbolState)",
                             style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         )
-                        Text(
-                            text = "Format, symbol, and receipts update dynamically across the entire app.",
-                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.outline)
-                        )
+
+                        // Action Buttons for changing Language & Currency individually
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = {
+                                    languageDialogMode = com.fruitbilling.app.ui.common.LanguageDialogMode.LANGUAGE_ONLY
+                                    showLanguageCurrencyDialog = true
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(text = strings.changeLanguage, fontSize = 12.sp, maxLines = 1)
+                            }
+
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = {
+                                    languageDialogMode = com.fruitbilling.app.ui.common.LanguageDialogMode.CURRENCY_ONLY
+                                    showLanguageCurrencyDialog = true
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(text = strings.changeCurrency, fontSize = 12.sp, maxLines = 1)
+                            }
+                        }
                     }
                 }
             }
@@ -842,11 +872,13 @@ fun MenuScreen(
             LanguageSelectionDialog(
                 initialLanguage = currentLanguageState,
                 initialCurrencyCode = currentCurrencyState,
+                mode = languageDialogMode,
                 onConfirmed = { lang ->
                     currentLanguageState = lang
                     currentCurrencyState = com.fruitbilling.app.data.preferences.ShopPreferences.getCurrencyCode(context)
                     currentSymbolState = com.fruitbilling.app.data.preferences.ShopPreferences.getCurrencySymbol(context)
                     showLanguageCurrencyDialog = false
+                    onLanguageChanged?.invoke(lang)
                 },
                 onDismiss = { showLanguageCurrencyDialog = false }
             )

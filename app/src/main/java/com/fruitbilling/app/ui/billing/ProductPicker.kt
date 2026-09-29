@@ -110,9 +110,10 @@ fun ProductCatalogSection(
                     modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.CenterStart
                 ) {
+                    val strings = com.fruitbilling.app.util.LocalAppStrings.current
                     if (searchQuery.isEmpty()) {
                         Text(
-                            text = "Search fruits (e.g. Apple, Orange)...",
+                            text = strings.searchProducts,
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
                             color = MaterialTheme.colorScheme.outline
                         )
@@ -474,8 +475,9 @@ fun AddProductDialog(
                 enabled = isValid,
                 shape = RoundedCornerShape(8.dp)
             ) {
+                val strings = com.fruitbilling.app.util.LocalAppStrings.current
                 Text(
-                    text = "+ Add to Bill (${MoneyUtils.formatPrice(lineTotal)})",
+                    text = "+ ${strings.addToBill} (${MoneyUtils.formatPrice(lineTotal)})",
                     fontWeight = FontWeight.Bold
                 )
             }

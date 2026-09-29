@@ -61,10 +61,11 @@ fun TotalAndPaymentBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val strings = com.fruitbilling.app.util.LocalAppStrings.current
         // Total Display (Left)
         Column {
             Text(
-                text = "TOTAL",
+                text = strings.total.uppercase(),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
@@ -87,7 +88,7 @@ fun TotalAndPaymentBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             PaymentChip(
-                label = "💵 Cash",
+                label = "💵 ${strings.cash}",
                 isSelected = selectedPaymentMethod == PaymentMethod.CASH,
                 activeColor = CashGreen,
                 onClick = {
@@ -100,7 +101,7 @@ fun TotalAndPaymentBar(
             )
 
             PaymentChip(
-                label = "📱 UPI",
+                label = "📱 ${strings.upi}",
                 isSelected = selectedPaymentMethod == PaymentMethod.UPI,
                 activeColor = UpiBlue,
                 onClick = {

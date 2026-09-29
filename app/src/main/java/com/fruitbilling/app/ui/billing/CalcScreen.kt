@@ -417,12 +417,14 @@ fun CalcSaveStrip(
                     strokeWidth = 2.dp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Saving…", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                val strings = com.fruitbilling.app.util.LocalAppStrings.current
+                Text("${strings.saveBill}…", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             } else {
+                val strings = com.fruitbilling.app.util.LocalAppStrings.current
                 val label = if (totalAmount != null && totalAmount > BigDecimal.ZERO) {
-                    "💾  Save Bill (${MoneyUtils.formatPrice(totalAmount)})"
+                    "💾  ${strings.saveBill} (${MoneyUtils.formatPrice(totalAmount)})"
                 } else {
-                    "💾  Save Bill"
+                    "💾  ${strings.saveBill}"
                 }
                 Text(
                     text = label,

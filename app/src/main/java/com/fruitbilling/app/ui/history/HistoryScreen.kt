@@ -80,6 +80,7 @@ fun HistoryScreen(
     viewModel: HistoryViewModel,
     modifier: Modifier = Modifier
 ) {
+    val strings = com.fruitbilling.app.util.LocalAppStrings.current
     val uiState by viewModel.uiState.collectAsState()
     val deletedBills by viewModel.deletedBills.collectAsState()
     val deletedBillsCount by viewModel.deletedBillsCount.collectAsState()
@@ -104,7 +105,7 @@ fun HistoryScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            text = "History & Summary",
+                            text = strings.historyHeader,
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
                     },
@@ -125,7 +126,7 @@ fun HistoryScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = "Recycle Bin",
+                                    contentDescription = strings.recycleBin,
                                     tint = MaterialTheme.colorScheme.onPrimary
                                 )
                             }
@@ -146,7 +147,7 @@ fun HistoryScreen(
                                     onDismissRequest = { showExportMenu = false }
                                 ) {
                                     DropdownMenuItem(
-                                        text = { Text("📄 Export PDF / Print", fontWeight = FontWeight.SemiBold) },
+                                        text = { Text("📄 ${strings.exportPdf}", fontWeight = FontWeight.SemiBold) },
                                         onClick = {
                                             showExportMenu = false
                                             val res = PdfExportManager.exportBillsToPdf(context, uiState.completedBills)
@@ -158,7 +159,7 @@ fun HistoryScreen(
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("📊 Export CSV (Excel)", fontWeight = FontWeight.SemiBold) },
+                                        text = { Text("📊 ${strings.exportCsv}", fontWeight = FontWeight.SemiBold) },
                                         onClick = {
                                             showExportMenu = false
                                             val res = CsvExportManager.exportBillsToCsv(context, uiState.completedBills)

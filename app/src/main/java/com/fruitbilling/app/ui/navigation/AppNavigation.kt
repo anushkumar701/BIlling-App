@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -184,108 +185,118 @@ fun AppNavigation(
         }
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            ) {
-                items.forEach { screen ->
-                    val isSelected = currentRoute == screen.route
-                    NavigationBarItem(
-                        icon = {
-                            Icon(
-                                imageVector = screen.icon,
-                                contentDescription = screen.title
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = screen.title,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        selected = isSelected,
-                        onClick = {
-                            if (currentRoute != screen.route) {
-                                navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+    val strings = com.fruitbilling.app.util.AppLocalization.getUiStrings(currentLanguageCode)
+
+    CompositionLocalProvider(com.fruitbilling.app.util.LocalAppStrings provides strings) {
+        Scaffold(
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            bottomBar = {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ) {
+                    items.forEach { screen ->
+                        val isSelected = currentRoute == screen.route
+                        NavigationBarItem(
+                            icon = {
+                                Icon(
+                                    imageVector = screen.icon,
+                                    contentDescription = screen.getLocalizedTitle(strings)
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = screen.getLocalizedTitle(strings),
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            selected = isSelected,
+                            onClick = {
+                                if (currentRoute != screen.route) {
+                                    navController.navigate(screen.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
                                 }
-                            }
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.outline,
-                            unselectedTextColor = MaterialTheme.colorScheme.outline
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.outline,
+                                unselectedTextColor = MaterialTheme.colorScheme.outline
+                            )
+                        )
+                    }
+                }
+            }
+        ) { innerPadding ->
+            // Share a single BillingViewModel instance between Billing and Calc tabs
+            // so both screens see the same bill state without duplication.
+            val billingViewModel: BillingViewModel = viewModel(
+                factory = BillingViewModelFactory(
+                    productRepository = app.productRepository,
+                    billRepository = app.billRepository
+                )
+            )
+
+            NavHost(
+                navController = navController,
+                startDestination = Screen.Calc.route,    // Always open Calc first
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = innerPadding.calculateBottomPadding())
+            ) {
+                // Billing tab: search / product picker (Beginner mode)
+                composable(Screen.Billing.route) {
+                    BillingScreen(viewModel = billingViewModel)
+                }
+
+                // Calc tab: the smart calculator / bill pad (default landing screen)
+                composable(Screen.Calc.route) {
+                    CalcScreen(viewModel = billingViewModel)
+                }
+
+                composable(Screen.History.route) {
+                    val historyViewModel: HistoryViewModel = viewModel(
+                        factory = HistoryViewModelFactory(
+                            billRepository = app.billRepository
                         )
                     )
+                    HistoryScreen(viewModel = historyViewModel)
+                }
+
+                composable(Screen.Menu.route) {
+                    val menuViewModel: MenuViewModel = viewModel(
+                        factory = MenuViewModelFactory(
+                            productRepository = app.productRepository,
+                            database = app.database
+                        )
+                    )
+                    MenuScreen(
+                        viewModel = menuViewModel,
+                        onLanguageChanged = { newLang ->
+                            currentLanguageCode = newLang
+                        }
+                    )
                 }
             }
-        }
-    ) { innerPadding ->
-        // Share a single BillingViewModel instance between Billing and Calc tabs
-        // so both screens see the same bill state without duplication.
-        val billingViewModel: BillingViewModel = viewModel(
-            factory = BillingViewModelFactory(
-                productRepository = app.productRepository,
-                billRepository = app.billRepository
-            )
-        )
 
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Calc.route,    // Always open Calc first
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = innerPadding.calculateBottomPadding())
-        ) {
-            // Billing tab: search / product picker (Beginner mode)
-            composable(Screen.Billing.route) {
-                BillingScreen(viewModel = billingViewModel)
-            }
-
-            // Calc tab: the smart calculator / bill pad (default landing screen)
-            composable(Screen.Calc.route) {
-                CalcScreen(viewModel = billingViewModel)
-            }
-
-            composable(Screen.History.route) {
-                val historyViewModel: HistoryViewModel = viewModel(
-                    factory = HistoryViewModelFactory(
-                        billRepository = app.billRepository
-                    )
+            if (isLanguageSelectionOpen) {
+                LanguageSelectionDialog(
+                    initialLanguage = currentLanguageCode,
+                    initialCurrencyCode = com.fruitbilling.app.data.preferences.ShopPreferences.getCurrencyCode(context),
+                    mode = com.fruitbilling.app.ui.common.LanguageDialogMode.BOTH,
+                    onConfirmed = { chosenLang ->
+                        currentLanguageCode = chosenLang
+                        isLanguageSelectionOpen = false
+                    }
                 )
-                HistoryScreen(viewModel = historyViewModel)
-            }
+            } else if (isOnboardingOpen) {
 
-            composable(Screen.Menu.route) {
-                val menuViewModel: MenuViewModel = viewModel(
-                    factory = MenuViewModelFactory(
-                        productRepository = app.productRepository,
-                        database = app.database
-                    )
-                )
-                MenuScreen(viewModel = menuViewModel)
-            }
-        }
-
-        if (isLanguageSelectionOpen) {
-            LanguageSelectionDialog(
-                initialLanguage = currentLanguageCode,
-                initialCurrencyCode = com.fruitbilling.app.data.preferences.ShopPreferences.getCurrencyCode(context),
-                onConfirmed = { chosenLang ->
-                    currentLanguageCode = chosenLang
-                    isLanguageSelectionOpen = false
-                }
-            )
-        } else if (isOnboardingOpen) {
             OnboardingDialog(
                 langCode = currentLanguageCode,
                 onSignInWithGoogle = {
@@ -320,3 +331,5 @@ fun AppNavigation(
         }
     }
 }
+}
+

@@ -12,4 +12,14 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     data object Calc   : Screen("calc",    "Calc",    Icons.Default.Calculate)
     data object History: Screen("history", "History", Icons.Default.History)
     data object Menu   : Screen("menu",    "Menu",    Icons.Default.Restaurant)
+
+    fun getLocalizedTitle(strings: com.fruitbilling.app.util.AppUiStrings): String {
+        return when (this) {
+            Billing -> strings.navBilling
+            Calc -> strings.navCalc
+            History -> strings.navHistory
+            Menu -> strings.navMenu
+        }
+    }
 }
+
