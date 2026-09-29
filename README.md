@@ -9,21 +9,18 @@
 
 **Retail Billing POS** is a high-speed, offline-first Point-of-Sale (POS) and smart calculator-first billing application tailored for retail stores, supermarkets, grocery outlets, and busy fruit stalls. Engineered for peak rush-hour efficiency with zero lag, tactile haptic feedback, customizable shop receipts, native PDF invoice & report generation, and intuitive counter workflows.
 
----
+## 📥 Official Downloads (v1.0 Production)
 
-## 🌐 Live Product Website & Interactive Simulator
+Download the ready-to-run applications for mobile and desktop:
 
-Experience the POS interface, test live calculations with weight inputs, and preview receipts directly in your web browser:
-- 🚀 **Live Website & Simulator**: [https://anushkumar701.github.io/BIlling-App/](https://anushkumar701.github.io/BIlling-App/)
+| Platform | Format | Download Link | Notes |
+| :--- | :--- | :--- | :--- |
+| 📱 **Android Phone & Tablet** | `.apk` (2.0 MB) | [Download app-release.apk](https://github.com/anushkumar701/BIlling-App/releases/download/v1.0/app-release.apk) | Android 8.0+ (Phones, POS Terminals, Tablets) |
+| 🪟 **Windows Desktop POS** | `.exe` (79 MB) | [Download FruitBilling-v1.0-Windows.exe](https://github.com/anushkumar701/BIlling-App/releases/download/v1.0/FruitBilling-v1.0-Windows.exe) | Windows 10/11 (Single-Click Portable Executable) |
+| 🪟 **Windows Portable Package** | `.zip` (110 MB) | [Download FruitBilling-v1.0-Windows-Portable.zip](https://github.com/anushkumar701/BIlling-App/releases/download/v1.0/FruitBilling-v1.0-Windows-Portable.zip) | Extract & Run `Fruit & Grocery POS.exe` |
 
----
+📦 **All GitHub Releases**: [Browse Releases](https://github.com/anushkumar701/BIlling-App/releases)
 
-## 📥 Direct Download
-
-Ready to install on any Android phone, tablet, or handheld POS terminal running Android 8.0 (API 26) or higher:
-
-- 🔗 **Direct APK Download**: [Download app-release.apk (v1.0)](https://github.com/anushkumar701/BIlling-App/releases/download/v1.0/app-release.apk)
-- 📦 **GitHub Releases**: [Browse All Releases](https://github.com/anushkumar701/BIlling-App/releases)
 
 ---
 

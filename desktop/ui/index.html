@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fruit & Grocery POS — Windows Desktop Edition</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="pos-app-layout">
+    <!-- Top System Bar -->
+    <header class="pos-topbar">
+      <div class="topbar-left">
+        <span class="app-icon">⚡</span>
+        <div class="app-title-block">
+          <span class="app-name">Fruit & Grocery POS</span>
+          <span class="app-tag">Windows Desktop v1.0</span>
+        </div>
+      </div>
+
+      <div class="topbar-center">
+        <div class="store-badge" id="topStoreName">Fresh Mart Retail</div>
+        <div class="time-clock" id="topClock">--:--:--</div>
+      </div>
+
+      <div class="topbar-right">
+        <!-- Currency Selector -->
+        <div class="dropdown-pill">
+          <span>💰</span>
+          <select id="currencySelect">
+            <option value="INR" data-sym="₹">₹ INR (India)</option>
+            <option value="USD" data-sym="$">$ USD (USA)</option>
+            <option value="EUR" data-sym="€">€ EUR (Europe)</option>
+            <option value="GBP" data-sym="£">£ GBP (UK)</option>
+            <option value="AED" data-sym="د.إ">د.إ AED (UAE)</option>
+            <option value="SAR" data-sym="SR">SR SAR (Saudi)</option>
+            <option value="BDT" data-sym="৳">৳ BDT (Bangladesh)</option>
+            <option value="PKR" data-sym="₨">₨ PKR (Pakistan)</option>
+            <option value="MYR" data-sym="RM">RM MYR (Malaysia)</option>
+            <option value="SGD" data-sym="S$">S$ SGD (Singapore)</option>
+            <option value="CAD" data-sym="C$">C$ CAD (Canada)</option>
+            <option value="AUD" data-sym="A$">A$ AUD (Australia)</option>
+          </select>
+        </div>
+
+        <!-- Language Selector -->
+        <div class="dropdown-pill">
+          <span>🌐</span>
+          <select id="languageSelect">
+            <option value="en">🇬🇧 English</option>
+            <option value="ta">🇮🇳 தமிழ் (Tamil)</option>
+            <option value="hi">🇮🇳 हिंदी (Hindi)</option>
+            <option value="ml">🇮🇳 മലയാളം (Malayalam)</option>
+            <option value="te">🇮🇳 తెలుగు (Telugu)</option>
+            <option value="es">🇪🇸 Español (Spanish)</option>
+            <option value="ar">🇸🇦 العربية (Arabic)</option>
+            <option value="fr">🇫🇷 Français (French)</option>
+          </select>
+        </div>
+
+        <button class="icon-btn" id="btnZReport" title="End-of-Day Z-Report">📋 Z-Report</button>
+        <button class="icon-btn" id="btnRecycleBin" title="Recycle Bin (Restore Deleted Bills)">🗑️</button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Split -->
+    <main class="pos-workspace">
+      <!-- Left: Catalog & Cashier Calculator -->
+      <section class="left-pane">
+        <!-- Quick Fruit / Veg Item Shelf -->
+        <div class="pane-box catalog-box">
+          <div class="box-header">
+            <span class="box-title" id="shelfTitle">Quick Select Catalog</span>
+            <span class="box-sub">Click item to load into calculator</span>
+          </div>
+          <div class="products-grid" id="productsGrid">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+
+        <!-- Express PC Keypad & Input Bar -->
+        <div class="pane-box calc-box">
+          <div class="box-header">
+            <span class="box-title">Express Entry (Numpad Enabled)</span>
+            <span class="box-sub">Type <code>Rate * Weight</code> (e.g. <code>180 * 750g</code> or <code>60 * 2.5</code>)</span>
+          </div>
+
+          <div class="calc-input-wrapper">
+            <input type="text" id="calcInput" class="calc-display-input" placeholder="0" autofocus />
+            <button id="btnClearInput" class="btn-clear" title="Clear (Esc)">Clear</button>
+            <button id="btnAddItem" class="btn-action-add" title="Add Item (Enter)">+ Add to Bill (Enter)</button>
+          </div>
+
+          <!-- Weight Preset Chips -->
+          <div class="preset-chips-row">
+            <span class="chip-label">Quick Multipliers:</span>
+            <button class="mult-chip" data-val="0.25">250g</button>
+            <button class="mult-chip" data-val="0.5">500g</button>
+            <button class="mult-chip" data-val="0.75">750g</button>
+            <button class="mult-chip" data-val="1">1 kg</button>
+            <button class="mult-chip" data-val="1.5">1.5 kg</button>
+            <button class="mult-chip" data-val="2">2 kg</button>
+            <button class="mult-chip" data-val="5">5 kg</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: Current Bill & Checkout Tape -->
+      <section class="right-pane">
+        <div class="bill-tape-card">
+          <div class="bill-tape-header">
+            <div>
+              <h2>Current Transaction</h2>
+              <span class="bill-order-meta" id="billOrderMeta">Bill #1001 • Counter 1</span>
+            </div>
+            <button id="btnResetCart" class="btn-danger-outline" title="Clear Bill">Discard</button>
+          </div>
+
+          <!-- Scrollable Bill Items Table -->
+          <div class="bill-items-table-wrapper">
+            <table class="bill-table">
+              <thead>
+                <tr>
+                  <th style="width: 45%;">Item / Calculation</th>
+                  <th style="width: 20%; text-align: center;">Qty/Weight</th>
+                  <th style="width: 25%; text-align: right;">Amount</th>
+                  <th style="width: 10%;"></th>
+                </tr>
+              </thead>
+              <tbody id="billItemsBody">
+                <tr class="empty-row" id="emptyCartRow">
+                  <td colspan="4">No items added yet. Click items or type calculation to begin.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Discount & Rounding Section -->
+          <div class="bill-rounding-bar" id="roundingBar" style="display: none;">
+            <span class="rounding-tag">Smart Final Price:</span>
+            <div class="rounding-chips-container" id="roundingChips"></div>
+          </div>
+
+          <!-- Payment Mode Bar -->
+          <div class="bill-payment-selector">
+            <label class="pay-option active">
+              <input type="radio" name="payMode" value="CASH" checked />
+              <span>💵 Cash</span>
+            </label>
+            <label class="pay-option">
+              <input type="radio" name="payMode" value="UPI" />
+              <span>📱 UPI / Card</span>
+            </label>
+            <label class="pay-option">
+              <input type="radio" name="payMode" value="PENDING" />
+              <span>⏳ Pending (Khata)</span>
+            </label>
+          </div>
+
+          <div class="customer-input-row">
+            <input type="text" id="customerNameInput" placeholder="Customer Name / Mobile (Optional for Cash, Required for Pending)" />
+          </div>
+
+          <!-- Bill Summary Total Tray -->
+          <div class="bill-summary-tray">
+            <div class="summary-line">
+              <span>Items Total (<span id="totalItemsCount">0</span>):</span>
+              <span class="sub-amt" id="subTotalDisplay">₹0.00</span>
+            </div>
+            <div class="summary-line bold">
+              <span>Net Payable:</span>
+              <span class="grand-amt" id="grandTotalDisplay">₹0.00</span>
+            </div>
+
+            <!-- Complete Bill Button -->
+            <button id="btnCompleteAndPrint" class="btn-complete-bill" disabled>
+              <span class="btn-text">🖨️ Print & Complete Bill (F2)</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Thermal Receipt Modal / Preview -->
+  <div class="modal-overlay" id="receiptModal">
+    <div class="receipt-paper">
+      <div class="receipt-cut"></div>
+      <div class="receipt-header">
+        <h2 id="receiptStoreHeader">FRESH MART RETAIL</h2>
+        <p>Fruit & Vegetable Counter POS</p>
+        <p id="receiptDateTime">#1001 • Today</p>
+      </div>
+      <div class="receipt-divider">================================</div>
+      <div id="receiptList"></div>
+      <div class="receipt-divider">================================</div>
+      <div class="receipt-totals">
+        <div class="r-row"><span>Total Items:</span><span id="rItemCount">0</span></div>
+        <div class="r-row bold"><span>Grand Total:</span><span id="rTotalAmt">₹0.00</span></div>
+        <div class="r-row"><span>Payment:</span><span id="rPayMode">CASH</span></div>
+        <div class="r-row" id="rCustRow" style="display:none;"><span>Customer:</span><span id="rCustName"></span></div>
+      </div>
+      <div class="receipt-divider">================================</div>
+      <div class="receipt-footer">
+        Thank you for shopping with us! 😊<br>
+        *** Powered by Retail POS Windows ***
+      </div>
+      <div class="receipt-actions">
+        <button class="btn btn-secondary" id="btnCloseReceipt">Close</button>
+        <button class="btn btn-primary" id="btnPrintPhysical">Print Thermal Receipt (ESC/POS)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- End of Day Z-Report Modal -->
+  <div class="modal-overlay" id="zReportModal">
+    <div class="dialog-box">
+      <div class="dialog-header">
+        <h3>📋 End-of-Day Cash Drawer (Z-Report)</h3>
+        <button class="btn-dialog-close" id="btnCloseZReport">✕</button>
+      </div>
+      <div class="dialog-body">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span class="lbl">💵 Cash Sales</span>
+            <span class="val" id="zCashSales">₹0.00</span>
+          </div>
+          <div class="kpi-card">
+            <span class="lbl">📱 UPI / Card</span>
+            <span class="val" id="zUpiSales">₹0.00</span>
+          </div>
+          <div class="kpi-card">
+            <span class="lbl">⏳ Pending Dues</span>
+            <span class="val" id="zPendingSales">₹0.00</span>
+          </div>
+          <div class="kpi-card highlight">
+            <span class="lbl">💰 Total Revenue</span>
+            <span class="val" id="zTotalSales">₹0.00</span>
+          </div>
+        </div>
+
+        <div class="drawer-count-box">
+          <label>Counted Drawer Cash:</label>
+          <input type="number" id="drawerCashInput" placeholder="Enter physical counted cash" />
+          <div class="variance-result" id="varianceResult" style="display:none;"></div>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-secondary" id="btnDismissZ">Close</button>
+        <button class="btn btn-primary" id="btnShareZReport">Share Report (WhatsApp / Print)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recycle Bin Modal -->
+  <div class="modal-overlay" id="recycleBinModal">
+    <div class="dialog-box">
+      <div class="dialog-header">
+        <h3>🗑️ 30-Day Recycle Bin</h3>
+        <button class="btn-dialog-close" id="btnCloseRecycle">✕</button>
+      </div>
+      <div class="dialog-body">
+        <p class="dialog-sub">Deleted bills are retained for 30 days before permanent auto-purge. 1-tap restore to active sales.</p>
+        <div class="deleted-list" id="deletedBillsList">
+          <div class="empty-state">No deleted bills in recycle bin.</div>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-secondary" id="btnDismissRecycle">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -27,8 +27,8 @@
       "output": "dist"
     },
     "win": {
-      "target": ["nsis", "portable"],
-      "icon": "assets/icon.png"
+      "signAndEditExecutable": false,
+      "target": ["dir"]
     },
     "mac": {
       "target": ["dmg", "zip"],

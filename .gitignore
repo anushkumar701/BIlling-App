@@ -2,6 +2,9 @@
 *.apk
 *.ap_
 *.aab
+*.exe
+*.zip
+
 
 # Files for the ART/Dalvik VM
 *.dex
@@ -53,3 +56,7 @@ captures/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Desktop build
+desktop/node_modules/
+desktop/dist/
