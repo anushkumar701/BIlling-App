@@ -55,6 +55,7 @@ import com.fruitbilling.app.data.repository.TodayStats
 import com.fruitbilling.app.ui.theme.CashGreen
 import com.fruitbilling.app.ui.theme.UpiBlue
 import com.fruitbilling.app.util.DateUtils
+import java.math.BigDecimal
 import com.fruitbilling.app.util.MoneyUtils
 
 import android.widget.Toast
@@ -730,6 +731,8 @@ fun HistoryBillRow(
  * followed by every date's sales and bill count, newest first, shown directly
  * with NO date picker required to see it.
  */
+data class TopProductStat(val name: String, val revenue: BigDecimal, val count: Int)
+
 @Composable
 private fun BusinessSummaryContent(
     summary: MonthSalesSummary,
@@ -737,6 +740,24 @@ private fun BusinessSummaryContent(
     completedBills: List<BillWithItems> = emptyList()
 ) {
     val context = LocalContext.current
+    var showDailyClosingDialog by remember { mutableStateOf(false) }
+
+    val topSellingProducts = remember(completedBills) {
+        val map = mutableMapOf<String, Pair<BigDecimal, Int>>()
+        for (b in completedBills) {
+            for (item in b.items) {
+                val rawName = item.productNameSnapshot
+                    ?: item.expression.substringBefore('=').substringBefore('×').substringBefore('*').trim()
+                val cleanName = if (rawName.isBlank()) "General Item" else rawName
+                val current = map.getOrDefault(cleanName, Pair(BigDecimal.ZERO, 0))
+                map[cleanName] = Pair(current.first.add(item.calculatedAmount), current.second + 1)
+            }
+        }
+        map.entries
+            .map { TopProductStat(it.key, it.value.first, it.value.second) }
+            .sortedByDescending { it.revenue }
+            .take(5)
+    }
 
     LazyColumn(
         modifier = modifier
@@ -791,6 +812,127 @@ private fun BusinessSummaryContent(
                         SummaryPill(label = "Cash", value = MoneyUtils.formatWholePrice(summary.cashSales))
                         SummaryPill(label = "UPI", value = MoneyUtils.formatWholePrice(summary.upiSales))
                         SummaryPill(label = "Avg Bill", value = MoneyUtils.formatWholePrice(summary.avgBill))
+                    }
+                }
+            }
+        }
+
+        // Daily Closing (Z-Report) & Cash Drawer Reconciliation Card
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDailyClosingDialog = true },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(text = "🌙", fontSize = 22.sp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "End-of-Day Cash Drawer (Z-Report)",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "Reconcile register cash, spot shortages & share closing summary",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                    Text(text = "➔", fontSize = 18.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+            }
+        }
+
+        // Top Selling Products Section
+        if (topSellingProducts.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🏆 Top Selling Products",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "Fast Moving",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        val maxRevenue = topSellingProducts.maxOfOrNull { it.revenue } ?: BigDecimal.ONE
+
+                        for ((index, item) in topSellingProducts.withIndex()) {
+                            val progress = if (maxRevenue > BigDecimal.ZERO) {
+                                (item.revenue.toDouble() / maxRevenue.toDouble()).toFloat().coerceIn(0.05f, 1f)
+                            } else 0.1f
+
+                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "${index + 1}. ${item.name} (${item.count} orders)",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        text = MoneyUtils.formatPrice(item.revenue),
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                androidx.compose.material3.LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -876,6 +1018,20 @@ private fun BusinessSummaryContent(
                 DailySummaryCard(day = day)
             }
         }
+    }
+
+    if (showDailyClosingDialog) {
+        val (todayStart, todayEnd) = remember { com.fruitbilling.app.util.DateUtils.getTodayStartAndEndMillis() }
+        val todayBills = remember(completedBills) {
+            completedBills.filter {
+                val time = it.bill.completedAt ?: it.bill.createdAt
+                time in todayStart..todayEnd
+            }
+        }
+        DailyClosingDialog(
+            todayBills = todayBills,
+            onDismiss = { showDailyClosingDialog = false }
+        )
     }
 }
 

@@ -11,6 +11,13 @@
 
 ---
 
+## 🌐 Live Product Website & Interactive Simulator
+
+Experience the POS interface, test live calculations with weight inputs, and preview receipts directly in your web browser:
+- 🚀 **Live Website & Simulator**: [https://anushkumar701.github.io/BIlling-App/](https://anushkumar701.github.io/BIlling-App/)
+
+---
+
 ## 📥 Direct Download
 
 Ready to install on any Android phone, tablet, or handheld POS terminal running Android 8.0 (API 26) or higher:
@@ -21,6 +28,20 @@ Ready to install on any Android phone, tablet, or handheld POS terminal running 
 ---
 
 ## ✨ Features Overview (v1.0 Production)
+
+* 📊 **End-of-Day (Z-Report) Cash Drawer Reconciliation (New in v1.0):**
+  * Reconcile physical drawer cash against recorded register collections at closing time.
+  * Auto-computes **Shortage** or **Surplus** (Excess).
+  * 1-Tap formatted Z-Report closing summary sharing via WhatsApp or SMS to store owner.
+
+* 🏆 **Fast-Moving / Top-Selling Product Analytics (New in v1.0):**
+  * Auto-identifies top 5 highest revenue and order-volume products.
+  * Real-time visual progress bars directly inside the Business Summary tab.
+
+* 🗑️ **30-Day Auto-Purge Recycle Bin (New in v1.0):**
+  * Accidental bill deletion prevention: deleted bills are safely stored in the Recycle Bin for 30 days.
+  * 1-tap restore to active sales history.
+  * Automatic background purge after 30 days keeps device storage completely clean.
 
 * 🧮 **Smart Calculator-First POS (Calc Tab):**
   * High-speed arithmetic entry optimized for counter cashiers.

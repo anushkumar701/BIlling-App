@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fruit & Grocery Quick Billing | High-Speed Offline POS App</title>
+  <meta name="description" content="Lightning-fast calculator-first POS and billing app for fruit stalls, grocery stores, and retail merchants. 100% offline, zero-friction, thermal printing, and WhatsApp receipts." />
+  
+  <!-- Favicon / Web Icon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="site-header">
+    <div class="nav-container">
+      <a href="#" class="brand-logo">
+        <span class="logo-icon">⚡</span>
+        <span class="brand-name">Fruit & Grocery <span>POS</span></span>
+      </a>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#simulator">Live Simulator</a>
+        <a href="#install">Install Guide</a>
+        <a href="#specs">Specs</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="https://github.com/anushkumar701/BIlling-App/releases/download/v1.0/app-release.apk" class="btn btn-sm btn-primary">
+          <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download APK
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="hero-glow"></div>
+    <div class="container hero-container">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        <span>Version 1.0 Production Release Ready</span>
+      </div>
+      <h1 class="hero-title">
+        Lightning-Fast Billing for <span class="gradient-text">High-Volume Retail</span>.
+      </h1>
+      <p class="hero-subtitle">
+        Built specifically for fast-paced fruit stalls, vegetable vendors, and grocery stores. Experience calculator-speed entry, 100% offline reliability, instant WhatsApp receipts, and smart cash reconciliation.
+      </p>
+
+      <div class="hero-actions">
+        <a href="https://github.com/anushkumar701/BIlling-App/releases/download/v1.0/app-release.apk" class="btn btn-primary btn-lg" id="downloadHeroBtn">
+          <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Free APK (v1.0)
+          <span class="btn-subtext">~1.9 MB • Android 7.0+</span>
+        </a>
+        <a href="#simulator" class="btn btn-secondary btn-lg">
+          <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+          Try In-Browser Simulator
+        </a>
+      </div>
+
+      <!-- Quick Metrics Bar -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-val">0.0<span class="unit">s</span></div>
+          <div class="metric-lbl">Zero UI Latency</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val">100<span class="unit">%</span></div>
+          <div class="metric-lbl">Fully Offline (No Wi-Fi Needed)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val">1.9<span class="unit">MB</span></div>
+          <div class="metric-lbl">Ultra Lightweight APK</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val">30<span class="unit">Days</span></div>
+          <div class="metric-lbl">Auto-Purge Recycle Bin</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Simulator Section -->
+  <section id="simulator" class="simulator-section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Interactive Playground</span>
+        <h2 class="section-title">Experience the Speed Right in Your Browser</h2>
+        <p class="section-subtitle">Click items or quick multipliers below to see how easy and rapid billing is during morning rush hour.</p>
+      </div>
+
+      <div class="simulator-wrapper">
+        <!-- Phone Device Frame -->
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <!-- App Bar Mock -->
+            <div class="app-mock-header">
+              <div class="app-mock-status">
+                <span>09:41</span>
+                <span>📶 100% 🔋</span>
+              </div>
+              <div class="app-mock-nav">
+                <span class="title">Quick Billing POS</span>
+                <span class="mode-badge">Rush Mode Active</span>
+              </div>
+            </div>
+
+            <!-- Quick Item Carousel / Grid -->
+            <div class="simulator-shelf">
+              <div class="shelf-label">Quick Fruits & Veggies</div>
+              <div class="quick-items-row" id="quickItemsRow">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+
+            <!-- Calculator / Custom Input Bar -->
+            <div class="sim-calc-bar">
+              <input type="text" id="simCalcInput" placeholder="e.g. 500 * 750g or 120 * 2.5" readonly />
+              <button id="simClearInputBtn" class="sim-btn-clear" title="Clear">✕</button>
+              <button id="simAddItemBtn" class="sim-btn-add">+ Add</button>
+            </div>
+
+            <!-- Quick Multipliers -->
+            <div class="sim-multipliers">
+              <button class="mult-chip" data-qty="0.25">250g</button>
+              <button class="mult-chip" data-qty="0.5">500g</button>
+              <button class="mult-chip" data-qty="0.75">750g</button>
+              <button class="mult-chip" data-qty="1">1 kg</button>
+              <button class="mult-chip" data-qty="2">2 kg</button>
+            </div>
+
+            <!-- Current Bill Items Scrollable List -->
+            <div class="sim-cart-container">
+              <div class="sim-cart-header">
+                <span>Items in Current Bill (<span id="simItemCount">0</span>)</span>
+                <button id="simResetBillBtn" class="sim-text-btn">Clear All</button>
+              </div>
+              <div class="sim-cart-list" id="simCartList">
+                <div class="empty-cart-state" id="simEmptyCart">
+                  🛒 Tap items above to start adding to bill!
+                </div>
+              </div>
+            </div>
+
+            <!-- Total and Checkout Controls -->
+            <div class="sim-checkout-tray">
+              <!-- Smart Rounding Suggestions -->
+              <div class="sim-rounding-row" id="simRoundingRow" style="display: none;">
+                <span class="rounding-label">Suggested Round:</span>
+                <div class="rounding-chips" id="simRoundingChips"></div>
+              </div>
+
+              <!-- Payment Method Selector -->
+              <div class="sim-payment-tabs">
+                <button class="pay-tab active" data-mode="CASH">💵 Cash</button>
+                <button class="pay-tab" data-mode="UPI">📱 UPI</button>
+                <button class="pay-tab" data-mode="PENDING">⏳ Pending (Khata)</button>
+              </div>
+
+              <!-- Customer Name Field (for Pending or regular) -->
+              <div class="sim-customer-row">
+                <input type="text" id="simCustomerName" placeholder="Customer Name / Phone (Optional)" />
+              </div>
+
+              <div class="sim-total-bar">
+                <div>
+                  <span class="subtext">Grand Total</span>
+                  <div class="sim-total-amount" id="simTotalAmount">₹0.00</div>
+                </div>
+                <button class="sim-save-bill-btn" id="simSaveBillBtn" disabled>
+                  Complete & Bill ➔
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Simulator Side Explainer -->
+        <div class="simulator-features">
+          <div class="sim-feature-card">
+            <div class="icon">🍎</div>
+            <div class="content">
+              <h3>Direct Weight Calculation</h3>
+              <p>Type <code>500 * 750g</code> directly or tap preset weights. The engine immediately computes ₹375.00 without manual unit conversions.</p>
+            </div>
+          </div>
+          <div class="sim-feature-card">
+            <div class="icon">🏷️</div>
+            <div class="content">
+              <h3>Smart Final Price Suggestions</h3>
+              <p>When bills land on awkward totals like ₹1,304, 1-tap round to ₹1,300 or ₹1,290 right from the discount chips.</p>
+            </div>
+          </div>
+          <div class="sim-feature-card">
+            <div class="icon">🤝</div>
+            <div class="content">
+              <h3>Pending / Udhar Khata Tracking</h3>
+              <p>When regulars say "I will pay later", switch payment to Pending. Filter, track dues, and settle with 1 tap anytime.</p>
+            </div>
+          </div>
+          <div class="sim-feature-card">
+            <div class="icon">🖨️</div>
+            <div class="content">
+              <h3>Instant Thermal & WhatsApp Receipts</h3>
+              <p>Print via Bluetooth 58mm/80mm thermal printers or share formatted receipts via WhatsApp with zero delay.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Complete Features Grid -->
+  <section id="features" class="features-section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Production Grade POS</span>
+        <h2 class="section-title">Engineered Specifically for Market Speed</h2>
+        <p class="section-subtitle">No complicated retail ERP screens. Built for rapid single-handed thumb operation on any Android smartphone.</p>
+      </div>
+
+      <div class="features-grid">
+        <!-- Feature 1 -->
+        <div class="feature-box">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <h3 class="feature-title">Calculator-First POS</h3>
+          <p class="feature-desc">Perform direct item math: <code>45 * 3</code> or <code>180 * 500g</code> without navigating cumbersome product menus.</p>
+          <span class="feature-pill">Fast-Paced</span>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="feature-box">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          </div>
+          <h3 class="feature-title">End-of-Day Z-Report</h3>
+          <p class="feature-desc">Count your physical cash drawer at night. The system computes surplus or shortage and generates a 1-tap WhatsApp closing report.</p>
+          <span class="feature-pill">New in v1.0</span>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="feature-box">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </div>
+          <h3 class="feature-title">30-Day Recycle Bin</h3>
+          <p class="feature-desc">Accidentally deleted a bill? Safely restore it from the Recycle Bin within 30 days before it gets permanently cleaned.</p>
+          <span class="feature-pill">Safety First</span>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="feature-box">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <h3 class="feature-title">Top-Selling Analytics</h3>
+          <p class="feature-desc">Discover high-velocity items and top revenue earners right in your Business Summary with visual progress bars.</p>
+          <span class="feature-pill">Insights</span>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="feature-box">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          </div>
+          <h3 class="feature-title">Thermal & PDF Printing</h3>
+          <p class="feature-desc">Pair ESC/POS thermal printers via Bluetooth with custom store headers, tax IDs, and thank you footers, or print crisp PDF invoices.</p>
+          <span class="feature-pill">Hardware Ready</span>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="feature-box">
+          <div class="feature-icon-wrapper">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h3 class="feature-title">100% Offline & Private</h3>
+          <p class="feature-desc">No mandatory phone number logins. No hidden cloud trackers. Your financial records stay securely in local SQLite storage.</p>
+          <span class="feature-pill">Privacy First</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3-Step Installation Guide -->
+  <section id="install" class="install-section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Quick Start</span>
+        <h2 class="section-title">Install in Under 60 Seconds</h2>
+        <p class="section-subtitle">No registration, no monthly subscription, no credit card required.</p>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-number">01</div>
+          <h3 class="step-title">Download APK</h3>
+          <p class="step-desc">Grab the lightweight (~1.9 MB) release APK file directly from our official GitHub release.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">02</div>
+          <h3 class="step-title">Allow Unknown Sources</h3>
+          <p class="step-desc">When prompted by Chrome or Files, tap <strong>Settings</strong> and enable <em>"Allow from this source"</em>.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">03</div>
+          <h3 class="step-title">Start Billing Immediately</h3>
+          <p class="step-desc">Open the app, set your store name, add your fruit/vegetable items, and print your first receipt in seconds.</p>
+        </div>
+      </div>
+
+      <div class="download-banner">
+        <div class="download-banner-content">
+          <h3>Ready to revolutionize your counter checkout?</h3>
+          <p>Get the official production build of Fruit & Grocery Quick Billing App v1.0 today.</p>
+        </div>
+        <a href="https://github.com/anushkumar701/BIlling-App/releases/download/v1.0/app-release.apk" class="btn btn-primary btn-lg">
+          <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download v1.0 APK Now
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Specifications Table -->
+  <section id="specs" class="specs-section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Specifications</span>
+        <h2 class="section-title">Technical Details</h2>
+      </div>
+
+      <div class="specs-table-wrapper">
+        <table class="specs-table">
+          <tbody>
+            <tr>
+              <td>Version</td>
+              <td><strong>1.0 (Production Release)</strong></td>
+            </tr>
+            <tr>
+              <td>Package Size</td>
+              <td><strong>~1.9 MB</strong> (Optimized with Proguard/R8)</td>
+            </tr>
+            <tr>
+              <td>Compatibility</td>
+              <td><strong>Android 7.0 (API 24)</strong> up to <strong>Android 15+</strong></td>
+            </tr>
+            <tr>
+              <td>Architecture</td>
+              <td>100% Kotlin, Jetpack Compose Material 3, Room SQLite, Coroutines</td>
+            </tr>
+            <tr>
+              <td>Thermal Printer Support</td>
+              <td>Bluetooth ESC/POS (58mm and 80mm roll widths)</td>
+            </tr>
+            <tr>
+              <td>Backup & Sync</td>
+              <td>Local Encrypted SQLite + Optional Google Drive Cloud Backup</td>
+            </tr>
+            <tr>
+              <td>License</td>
+              <td>Open Source / MIT</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Simulated Receipt Modal -->
+  <div class="modal-overlay" id="simReceiptModal">
+    <div class="receipt-paper">
+      <div class="receipt-cut"></div>
+      <div class="receipt-header">
+        <div class="receipt-store">FRESH MART & FRUITS</div>
+        <div class="receipt-sub">Counter POS • Receipt</div>
+        <div class="receipt-meta" id="receiptMeta">#1001 • Today</div>
+      </div>
+      <div class="receipt-divider">================================</div>
+      <div class="receipt-items" id="receiptItems">
+        <!-- Injected -->
+      </div>
+      <div class="receipt-divider">================================</div>
+      <div class="receipt-summary">
+        <div class="row"><span>Total Items:</span><span id="receiptItemCount">0</span></div>
+        <div class="row bold"><span>Grand Total:</span><span id="receiptTotal">₹0.00</span></div>
+        <div class="row"><span>Payment Mode:</span><span id="receiptPayment">CASH</span></div>
+        <div class="row" id="receiptCustomerRow" style="display: none;"><span>Customer:</span><span id="receiptCustomerName"></span></div>
+      </div>
+      <div class="receipt-divider">================================</div>
+      <div class="receipt-footer">
+        Thank You! Visit Again 😊<br>
+        *** Powered by Fruit & Grocery POS ***
+      </div>
+      <div class="receipt-actions">
+        <button class="btn btn-sm btn-secondary" id="simCloseModalBtn">Close Preview</button>
+        <button class="btn btn-sm btn-primary" id="simShareReceiptBtn">Simulate WhatsApp Share</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-container">
+      <div class="footer-left">
+        <span class="logo-icon">⚡</span>
+        <span>Fruit & Grocery Quick Billing App • Version 1.0</span>
+      </div>
+      <div class="footer-right">
+        <a href="https://github.com/anushkumar701/BIlling-App" target="_blank" rel="noopener">GitHub Repository</a>
+        <a href="https://github.com/anushkumar701/BIlling-App/releases" target="_blank" rel="noopener">All Releases</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
