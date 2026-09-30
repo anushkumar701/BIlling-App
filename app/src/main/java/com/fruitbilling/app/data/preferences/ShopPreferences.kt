@@ -59,39 +59,33 @@ object ShopPreferences {
             .apply()
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun getCurrencySymbol(context: Context): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_CURRENCY_SYMBOL, DEFAULT_CURRENCY_SYMBOL) ?: DEFAULT_CURRENCY_SYMBOL
+        return DEFAULT_CURRENCY_SYMBOL
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun setCurrency(context: Context, symbol: String, code: String) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_CURRENCY_SYMBOL, symbol.trim())
-            .putString(KEY_CURRENCY_CODE, code.trim().uppercase())
-            .apply()
+        // Preserved for compatibility; app defaults to DEFAULT_CURRENCY_SYMBOL (₹) and DEFAULT_CURRENCY_CODE (INR)
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun getCurrencyCode(context: Context): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_CURRENCY_CODE, DEFAULT_CURRENCY_CODE) ?: DEFAULT_CURRENCY_CODE
+        return DEFAULT_CURRENCY_CODE
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun getAppLanguage(context: Context): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_APP_LANGUAGE, DEFAULT_APP_LANGUAGE) ?: DEFAULT_APP_LANGUAGE
+        return DEFAULT_APP_LANGUAGE
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun setAppLanguage(context: Context, languageCode: String) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_APP_LANGUAGE, languageCode.trim())
-            .putBoolean(KEY_LANGUAGE_SELECTED, true)
-            .apply()
+        // Preserved for compatibility; English is the sole language
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun isLanguageSelected(context: Context): Boolean {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_LANGUAGE_SELECTED, false)
+        return true
     }
 }

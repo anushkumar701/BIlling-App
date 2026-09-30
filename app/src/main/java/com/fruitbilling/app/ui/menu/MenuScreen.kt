@@ -68,7 +68,6 @@ import androidx.compose.ui.platform.LocalContext
 import com.fruitbilling.app.data.backup.GoogleAuthManager
 import com.fruitbilling.app.ui.common.PrivacyPolicyDialog
 import com.fruitbilling.app.ui.common.SimpleUpdateDialog
-import com.fruitbilling.app.ui.common.LanguageSelectionDialog
 import com.fruitbilling.app.ui.common.TermsOfServiceDialog
 import com.fruitbilling.app.util.DateUtils
 import androidx.compose.ui.unit.sp
@@ -79,8 +78,7 @@ import com.fruitbilling.app.util.MoneyUtils
 @Composable
 fun MenuScreen(
     viewModel: MenuViewModel,
-    modifier: Modifier = Modifier,
-    onLanguageChanged: ((String) -> Unit)? = null
+    modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -90,13 +88,8 @@ fun MenuScreen(
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showShopProfileDialog by remember { mutableStateOf(false) }
     var showSurveyDialog by remember { mutableStateOf(false) }
-    var showLanguageCurrencyDialog by remember { mutableStateOf(false) }
-    var languageDialogMode by remember { mutableStateOf(com.fruitbilling.app.ui.common.LanguageDialogMode.BOTH) }
     var shopNameState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getShopName(context)) }
     var shopPhoneState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getShopPhone(context) ?: "") }
-    var currentLanguageState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getAppLanguage(context)) }
-    var currentCurrencyState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getCurrencyCode(context)) }
-    var currentSymbolState by remember { mutableStateOf(com.fruitbilling.app.data.preferences.ShopPreferences.getCurrencySymbol(context)) }
 
     LaunchedEffect(Unit) {
         viewModel.initContextData(context)
@@ -520,85 +513,6 @@ fun MenuScreen(
                 }
             }
 
-            // Language & Currency Settings Card
-            item {
-                Spacer(modifier = Modifier.height(4.dp))
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(text = "🌐", fontSize = 22.sp)
-                                Text(
-                                    text = strings.languageAndCurrency,
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                                )
-                            }
-                            IconButton(onClick = {
-                                languageDialogMode = com.fruitbilling.app.ui.common.LanguageDialogMode.BOTH
-                                showLanguageCurrencyDialog = true
-                            }) {
-                                Icon(imageVector = Icons.Default.Edit, contentDescription = "Change Language or Currency")
-                            }
-                        }
-
-                        val langDisplay = com.fruitbilling.app.util.AppLocalization.SUPPORTED_LANGUAGES.find { it.code == currentLanguageState }?.let { "${it.flagEmoji} ${it.nativeName} (${it.displayName})" } ?: currentLanguageState
-                        Text(
-                            text = "${strings.activeLanguage}: $langDisplay",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                        )
-                        Text(
-                            text = "${strings.activeCurrency}: $currentCurrencyState ($currentSymbolState)",
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                        )
-
-                        // Action Buttons for changing Language & Currency individually
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            androidx.compose.material3.OutlinedButton(
-                                onClick = {
-                                    languageDialogMode = com.fruitbilling.app.ui.common.LanguageDialogMode.LANGUAGE_ONLY
-                                    showLanguageCurrencyDialog = true
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(text = strings.changeLanguage, fontSize = 12.sp, maxLines = 1)
-                            }
-
-                            androidx.compose.material3.OutlinedButton(
-                                onClick = {
-                                    languageDialogMode = com.fruitbilling.app.ui.common.LanguageDialogMode.CURRENCY_ONLY
-                                    showLanguageCurrencyDialog = true
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(text = strings.changeCurrency, fontSize = 12.sp, maxLines = 1)
-                            }
-                        }
-                    }
-                }
-            }
 
             // User Survey & Feedback Card (No login required)
             item {
@@ -995,21 +909,6 @@ fun MenuScreen(
             )
         }
 
-        if (showLanguageCurrencyDialog) {
-            LanguageSelectionDialog(
-                initialLanguage = currentLanguageState,
-                initialCurrencyCode = currentCurrencyState,
-                mode = languageDialogMode,
-                onConfirmed = { lang ->
-                    currentLanguageState = lang
-                    currentCurrencyState = com.fruitbilling.app.data.preferences.ShopPreferences.getCurrencyCode(context)
-                    currentSymbolState = com.fruitbilling.app.data.preferences.ShopPreferences.getCurrencySymbol(context)
-                    showLanguageCurrencyDialog = false
-                    onLanguageChanged?.invoke(lang)
-                },
-                onDismiss = { showLanguageCurrencyDialog = false }
-            )
-        }
     }
 }
 
