@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -839,6 +840,132 @@ fun MenuScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = viewModel::onDismissClearAll) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Pre-wipe Confirmation Dialog when switching accounts
+        uiState.pendingAccountSwitch?.let { pendingUser ->
+            AlertDialog(
+                onDismissRequest = viewModel::dismissAccountSwitch,
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Switch Account?",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                text = {
+                    Text(
+                        text = "This will replace local data with ${pendingUser.email}'s cloud backup.\n\nYour current account's data will be backed up to the cloud first so nothing is lost. Continue?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.confirmAccountSwitch(context) },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Continue")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::dismissAccountSwitch) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Account Switch Backup Failure Alert Dialog
+        uiState.backupFailureForSwitch?.let { failedUser ->
+            AlertDialog(
+                onDismissRequest = viewModel::dismissSwitchBackupFailure,
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(32.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Cloud Backup Failed",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Couldn't verify cloud backup before switching accounts — try again when you have a connection, or proceed anyway to replace local data with ${failedUser.email}'s backup.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.confirmSwitchAnyway(context) },
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Proceed Anyway")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::dismissSwitchBackupFailure) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Sign Out Backup Failure Alert Dialog
+        if (uiState.isSignOutBackupFailure) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissSignOutBackupFailure,
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(32.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Cloud Backup Failed",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Couldn't verify cloud backup before signing out — try again when you have a connection, or sign out anyway into Guest mode.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.confirmSignOutAnyway(context) },
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Sign Out Anyway")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::dismissSignOutBackupFailure) {
                         Text("Cancel")
                     }
                 }

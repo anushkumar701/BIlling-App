@@ -84,21 +84,16 @@ fun CalcScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Keep screen on while billing; auto-resets after 5 min
+    // Keep screen on while cashier is actively on the billing screen
     val context = LocalContext.current
     var keypadHeightDp by remember {
         mutableFloatStateOf(com.fruitbilling.app.data.preferences.CalcPreferences.getKeypadHeightDp(context))
     }
-    LaunchedEffect(uiState) {
+    DisposableEffect(Unit) {
         val window = (context as? Activity)?.window
         window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        delay(5 * 60 * 1000L)
-        window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    }
-    DisposableEffect(Unit) {
         onDispose {
-            (context as? Activity)?.window
-                ?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 

@@ -56,15 +56,10 @@ fun BillingScreen(
     var showCustomItemDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    LaunchedEffect(uiState) {
+    DisposableEffect(Unit) {
         val window = (context as? Activity)?.window
         window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        delay(5 * 60 * 1000L)
-        window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    }
-    DisposableEffect(Unit) {
         onDispose {
-            val window = (context as? Activity)?.window
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }

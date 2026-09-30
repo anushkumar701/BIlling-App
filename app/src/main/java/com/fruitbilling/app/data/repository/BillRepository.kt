@@ -341,18 +341,22 @@ class BillRepository(
 
     private suspend fun getNextSequentialBillNumber(): Int {
         // Daily-resetting bill numbers: #001 resets each day.
-        // Internal bill IDs stay unique/sequential (Room auto-increment).
+        // Room database is the authoritative source of truth (§12, §18).
+        val (startOfDay, endOfDay) = DateUtils.getTodayStartAndEndMillis()
+        val maxInDb = billDao.getMaxBillNumberForDateRange(startOfDay, endOfDay) ?: 0
+
         val prefs = com.fruitbilling.app.FruitBillingApp.instance
             .getSharedPreferences("bill_number_prefs", android.content.Context.MODE_PRIVATE)
         val todayKey = DateUtils.getTodayDateKey()
         val storedDate = prefs.getString("last_bill_date", "") ?: ""
-        val lastCounter = prefs.getInt("daily_bill_counter", 0)
-
-        val nextCounter = if (storedDate == todayKey) {
-            lastCounter + 1
+        val lastCounter = if (storedDate == todayKey) {
+            prefs.getInt("daily_bill_counter", 0)
         } else {
-            1  // New day → reset to 1
+            0
         }
+
+        // Must never step backward into an already-used number, even if prefs were cleared
+        val nextCounter = maxOf(maxInDb, lastCounter) + 1
 
         prefs.edit()
             .putString("last_bill_date", todayKey)

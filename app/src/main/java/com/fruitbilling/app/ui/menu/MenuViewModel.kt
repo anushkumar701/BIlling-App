@@ -38,7 +38,11 @@ data class MenuUiState(
     // OTA App Updates state
     val isCheckingUpdate: Boolean = false,
     val updateReleaseInfo: AppReleaseInfo? = null,
-    val showUpdateDialog: Boolean = false
+    val showUpdateDialog: Boolean = false,
+    // Account switch & wipe protection
+    val pendingAccountSwitch: GoogleUserData? = null,
+    val backupFailureForSwitch: GoogleUserData? = null,
+    val isSignOutBackupFailure: Boolean = false
 )
 
 class MenuViewModel(
@@ -70,28 +74,68 @@ class MenuViewModel(
     }
 
     fun onGoogleSignInSuccess(user: GoogleUserData, context: Context? = null) {
-        _uiState.value = _uiState.value.copy(googleUser = user)
         val email = user.email
-        if (context != null && !email.isNullOrBlank()) {
-            viewModelScope.launch(Dispatchers.IO) {
-                val restoreResult = CloudBackupManager.handleAccountSignIn(context, database, email)
-                withContext(Dispatchers.Main) {
-                    val updatedTime = CloudBackupManager.getLastBackupTime(context)
-                    _uiState.value = _uiState.value.copy(lastBackupTimestamp = updatedTime)
-                    restoreResult.onSuccess { stats ->
-                        if (stats.totalCount > 0) {
-                            _snackbarMessages.emit("✅ Loaded ${stats.productsRestored} fruits & ${stats.billsRestored} bills for $email")
-                        } else {
-                            _snackbarMessages.emit("Connected as $email")
-                        }
-                    }.onFailure { error ->
+        if (context == null || email.isNullOrBlank()) {
+            _uiState.value = _uiState.value.copy(googleUser = user)
+            viewModelScope.launch { _snackbarMessages.emit("Connected: ${user.email}") }
+            return
+        }
+
+        val previousEmail = CloudBackupManager.getActiveAccountEmail(context)
+        val normalizedNew = email.trim().lowercase()
+
+        // If switching from a DIFFERENT signed-in account, show confirmation dialog before wiping
+        if (!previousEmail.isNullOrBlank() && !previousEmail.equals(normalizedNew, ignoreCase = true)) {
+            _uiState.value = _uiState.value.copy(pendingAccountSwitch = user)
+            return
+        }
+
+        executeAccountSignIn(context, user, forceWipeIfBackupFails = false)
+    }
+
+    fun confirmAccountSwitch(context: Context) {
+        val user = _uiState.value.pendingAccountSwitch ?: return
+        _uiState.value = _uiState.value.copy(pendingAccountSwitch = null)
+        executeAccountSignIn(context, user, forceWipeIfBackupFails = false)
+    }
+
+    fun dismissAccountSwitch() {
+        _uiState.value = _uiState.value.copy(pendingAccountSwitch = null)
+    }
+
+    fun confirmSwitchAnyway(context: Context) {
+        val user = _uiState.value.backupFailureForSwitch ?: return
+        _uiState.value = _uiState.value.copy(backupFailureForSwitch = null)
+        executeAccountSignIn(context, user, forceWipeIfBackupFails = true)
+    }
+
+    fun dismissSwitchBackupFailure() {
+        _uiState.value = _uiState.value.copy(backupFailureForSwitch = null)
+    }
+
+    private fun executeAccountSignIn(context: Context, user: GoogleUserData, forceWipeIfBackupFails: Boolean) {
+        _uiState.value = _uiState.value.copy(googleUser = user)
+        val email = user.email ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val restoreResult = CloudBackupManager.handleAccountSignIn(
+                context, database, email, forceProceedOnBackupFailure = forceWipeIfBackupFails
+            )
+            withContext(Dispatchers.Main) {
+                val updatedTime = CloudBackupManager.getLastBackupTime(context)
+                _uiState.value = _uiState.value.copy(lastBackupTimestamp = updatedTime)
+                restoreResult.onSuccess { stats ->
+                    if (stats.totalCount > 0) {
+                        _snackbarMessages.emit("✅ Loaded ${stats.productsRestored} fruits & ${stats.billsRestored} bills for $email")
+                    } else {
+                        _snackbarMessages.emit("Connected as $email")
+                    }
+                }.onFailure { error ->
+                    if (error is com.fruitbilling.app.data.backup.CloudBackupException.PreWipeBackupFailedException) {
+                        _uiState.value = _uiState.value.copy(backupFailureForSwitch = user)
+                    } else {
                         _snackbarMessages.emit("Connected as $email (${error.message})")
                     }
                 }
-            }
-        } else {
-            viewModelScope.launch {
-                _snackbarMessages.emit("Connected: ${user.email}")
             }
         }
     }
@@ -102,18 +146,39 @@ class MenuViewModel(
         }
     }
 
-    fun onSignOut(context: Context) {
+    fun onSignOut(context: Context, forceProceed: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
-            CloudBackupManager.handleAccountSignOut(context, database)
+            val result = CloudBackupManager.handleAccountSignOut(context, database, forceProceedOnBackupFailure = forceProceed)
             withContext(Dispatchers.Main) {
-                GoogleAuthManager.signOut(context) {
-                    _uiState.value = _uiState.value.copy(googleUser = null, lastBackupTimestamp = 0L)
-                    viewModelScope.launch {
-                        _snackbarMessages.emit("Signed out of Google account. Clean guest mode active.")
+                result.onSuccess {
+                    GoogleAuthManager.signOut(context) {
+                        _uiState.value = _uiState.value.copy(
+                            googleUser = null,
+                            lastBackupTimestamp = 0L,
+                            isSignOutBackupFailure = false
+                        )
+                        viewModelScope.launch {
+                            _snackbarMessages.emit("Signed out of Google account. Clean guest mode active.")
+                        }
+                    }
+                }.onFailure { error ->
+                    if (error is com.fruitbilling.app.data.backup.CloudBackupException.SignOutBackupFailedException) {
+                        _uiState.value = _uiState.value.copy(isSignOutBackupFailure = true)
+                    } else {
+                        _snackbarMessages.emit("Sign out failed: ${error.message}")
                     }
                 }
             }
         }
+    }
+
+    fun confirmSignOutAnyway(context: Context) {
+        _uiState.value = _uiState.value.copy(isSignOutBackupFailure = false)
+        onSignOut(context, forceProceed = true)
+    }
+
+    fun dismissSignOutBackupFailure() {
+        _uiState.value = _uiState.value.copy(isSignOutBackupFailure = false)
     }
 
     fun onBackupToDrive(context: Context) {

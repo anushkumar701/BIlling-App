@@ -146,7 +146,8 @@ object CloudBackupManager {
     suspend fun generateBackupJson(database: AppDatabase): String =
         withContext(Dispatchers.IO) {
             val products = database.productDao().getAllProductsSync()
-            val bills = database.billDao().getAllCompletedBillsSync()
+            // Single @Transaction relation query: gathers all bills and items in one pass (no N+1 loop)
+            val billsWithItems = database.billDao().getAllCompletedBillsWithItemsSync()
 
             val root = JSONObject().apply {
                 put("version", 1)
@@ -169,8 +170,9 @@ object CloudBackupManager {
 
                 // Bills & items
                 val billsArray = JSONArray()
-                for (b in bills) {
-                    val items = database.billItemDao().getItemsForBillSync(b.id)
+                for (bw in billsWithItems) {
+                    val b = bw.bill
+                    val items = bw.items
                     val billObj = JSONObject().apply {
                         put("billNumber", b.billNumber)
                         put("status", b.status.name)
@@ -205,6 +207,7 @@ object CloudBackupManager {
     /**
      * Backs up data directly to Google Drive in the cloud under the user's Google account.
      * Does NOT save anything into the local device file system.
+     * Includes automated verification dry-run to ensure the uploaded backup is readable.
      */
     suspend fun backupToCloud(context: Context, database: AppDatabase, email: String): Result<Boolean> =
         withContext(Dispatchers.IO) {
@@ -222,11 +225,25 @@ object CloudBackupManager {
                 // Upload directly to Google Drive AppData in Google Cloud
                 val driveResult = GoogleDriveManager.uploadToCloud(context, email, jsonString)
                 if (driveResult.isSuccess) {
+                    // Automated backup verification dry-run:
+                    // Verify the uploaded cloud backup is readable and has valid schema
+                    val verifyResult = GoogleDriveManager.downloadFromCloud(context, email)
+                    val downloadedJson = verifyResult.getOrNull()
+                    if (downloadedJson.isNullOrBlank()) {
+                        return@withContext Result.failure(Exception("Cloud backup verification failed: empty download."))
+                    }
+                    try {
+                        val parsed = JSONObject(downloadedJson)
+                        if (!parsed.has("products") || !parsed.has("bills")) {
+                            return@withContext Result.failure(Exception("Cloud backup verification failed: missing products or bills array."))
+                        }
+                    } catch (e: Exception) {
+                        return@withContext Result.failure(Exception("Cloud backup verification failed: unparseable JSON (${e.message})"))
+                    }
+
                     setLastBackupTime(context, System.currentTimeMillis())
                     Result.success(true)
                 } else {
-                    // Even if Google Drive API returned an error, private cache + Android OS backup is updated
-                    setLastBackupTime(context, System.currentTimeMillis())
                     driveResult
                 }
             } catch (e: Exception) {
@@ -296,7 +313,8 @@ object CloudBackupManager {
     suspend fun handleAccountSignIn(
         context: Context,
         database: AppDatabase,
-        newEmail: String
+        newEmail: String,
+        forceProceedOnBackupFailure: Boolean = false
     ): Result<RestoreResult> = withContext(Dispatchers.IO) {
         try {
             val previousEmail = getActiveAccountEmail(context)
@@ -305,9 +323,15 @@ object CloudBackupManager {
             // 1. If switching from a DIFFERENT signed-in account:
             if (!previousEmail.isNullOrBlank() && !previousEmail.equals(normalizedNew, ignoreCase = true)) {
                 // Back up old account's latest data to cloud first
-                try {
-                    backupToCloud(context, database, previousEmail)
-                } catch (_: Exception) {}
+                val backupResult = backupToCloud(context, database, previousEmail)
+                if (backupResult.isFailure && !forceProceedOnBackupFailure) {
+                    return@withContext Result.failure(
+                        CloudBackupException.PreWipeBackupFailedException(
+                            previousEmail,
+                            backupResult.exceptionOrNull()
+                        )
+                    )
+                }
 
                 // Wipe local tables completely so old account's data doesn't leak into new account
                 database.clearAllTables()
@@ -348,18 +372,33 @@ object CloudBackupManager {
      * 2. Clears active account preference.
      * 3. Clears local database and initializes default products for clean Guest mode.
      */
-    suspend fun handleAccountSignOut(context: Context, database: AppDatabase) = withContext(Dispatchers.IO) {
+    suspend fun handleAccountSignOut(
+        context: Context,
+        database: AppDatabase,
+        forceProceedOnBackupFailure: Boolean = false
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val currentEmail = getActiveAccountEmail(context)
             if (!currentEmail.isNullOrBlank()) {
-                backupToCloud(context, database, currentEmail)
+                val backupResult = backupToCloud(context, database, currentEmail)
+                if (backupResult.isFailure && !forceProceedOnBackupFailure) {
+                    return@withContext Result.failure(
+                        CloudBackupException.SignOutBackupFailedException(
+                            currentEmail,
+                            backupResult.exceptionOrNull()
+                        )
+                    )
+                }
             }
-        } catch (_: Exception) {}
 
-        setActiveAccountEmail(context, null)
-        database.clearAllTables()
-        com.fruitbilling.app.FruitBillingApp.instance.productRepository.ensureDefaultProducts()
-        com.fruitbilling.app.FruitBillingApp.instance.billRepository.getOrCreateActiveBill()
+            setActiveAccountEmail(context, null)
+            database.clearAllTables()
+            com.fruitbilling.app.FruitBillingApp.instance.productRepository.ensureDefaultProducts()
+            com.fruitbilling.app.FruitBillingApp.instance.billRepository.getOrCreateActiveBill()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     /**
@@ -558,11 +597,35 @@ object CloudBackupManager {
                     }
                 }
 
+                // Synchronize SharedPreferences daily counter with restored bills for today
+                val (startOfDay, endOfDay) = com.fruitbilling.app.util.DateUtils.getTodayStartAndEndMillis()
+                val maxTodayInDb = database.billDao().getMaxBillNumberForDateRange(startOfDay, endOfDay) ?: 0
+                if (maxTodayInDb > 0) {
+                    val prefs = com.fruitbilling.app.FruitBillingApp.instance
+                        .getSharedPreferences("bill_number_prefs", Context.MODE_PRIVATE)
+                    val todayKey = com.fruitbilling.app.util.DateUtils.getTodayDateKey()
+                    val currentCounter = prefs.getInt("daily_bill_counter", 0)
+                    if (maxTodayInDb > currentCounter) {
+                        prefs.edit()
+                            .putString("last_bill_date", todayKey)
+                            .putInt("daily_bill_counter", maxTodayInDb)
+                            .apply()
+                    }
+                }
+
                 Result.success(RestoreResult(restoredProducts, restoredBills))
             } catch (e: Exception) {
                 Result.failure(e)
             }
         }
+}
+
+sealed class CloudBackupException(message: String, cause: Throwable? = null) : Exception(message, cause) {
+    class PreWipeBackupFailedException(val email: String, cause: Throwable?) :
+        CloudBackupException("Couldn't verify cloud backup for $email before switching accounts — try again when you have a connection", cause)
+
+    class SignOutBackupFailedException(val email: String, cause: Throwable?) :
+        CloudBackupException("Couldn't verify cloud backup for $email before signing out — try again when you have a connection", cause)
 }
 
 data class RestoreResult(

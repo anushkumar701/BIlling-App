@@ -13,7 +13,9 @@ import java.math.BigDecimal
         Index(value = ["completedAt"]),
         Index(value = ["status", "completedAt"]),
         Index(value = ["paymentMethod"]),
-        Index(value = ["deletedAt"])
+        Index(value = ["deletedAt"]),
+        Index(value = ["createdAt"]),
+        Index(value = ["status", "createdAt"])
     ]
 )
 data class Bill(

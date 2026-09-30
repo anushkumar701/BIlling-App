@@ -136,4 +136,74 @@ class CalculatorEngineTest {
         val tagged = CalculatorEngine.applyShortcut("", "500g", "120")
         assertEquals("120 × 500g", tagged)
     }
+
+    @Test
+    fun testAutoGramConversionThreshold() {
+        // When >= 50 follows multiply without explicit unit or decimal point, auto-convert to grams
+        val g50 = CalculatorEngine.evaluate("200 × 50")
+        assertTrue(g50.isSuccess)
+        assertEquals(BigDecimal("10.00"), g50.getOrNull())
+
+        val g850 = CalculatorEngine.evaluate("200 × 850")
+        assertTrue(g850.isSuccess)
+        assertEquals(BigDecimal("170.00"), g850.getOrNull())
+
+        val g250 = CalculatorEngine.evaluate("80 × 250")
+        assertTrue(g250.isSuccess)
+        assertEquals(BigDecimal("20.00"), g250.getOrNull())
+
+        // Numbers < 50 without unit are treated as count/piece (e.g. 4 apples or 3 boxes)
+        val count4 = CalculatorEngine.evaluate("200 × 4")
+        assertTrue(count4.isSuccess)
+        assertEquals(BigDecimal("800.00"), count4.getOrNull())
+
+        // Numbers in addition/subtraction are never auto-converted to grams
+        val add50 = CalculatorEngine.evaluate("200 + 50")
+        assertTrue(add50.isSuccess)
+        assertEquals(BigDecimal("250.00"), add50.getOrNull())
+    }
+
+    @Test
+    fun testExplicitUnitCaseInsensitivity() {
+        val upperKg = CalculatorEngine.evaluate("300 × 1.5KG")
+        assertTrue(upperKg.isSuccess)
+        assertEquals(BigDecimal("450.00"), upperKg.getOrNull())
+
+        val upperG = CalculatorEngine.evaluate("200 × 500G")
+        assertTrue(upperG.isSuccess)
+        assertEquals(BigDecimal("100.00"), upperG.getOrNull())
+
+        val lowerKg = CalculatorEngine.evaluate("120 × 0.25kg")
+        assertTrue(lowerKg.isSuccess)
+        assertEquals(BigDecimal("30.00"), lowerKg.getOrNull())
+    }
+
+    @Test
+    fun testNegativeNumbersAndComplexChaining() {
+        val negStart = CalculatorEngine.evaluate("-50 + 100")
+        assertTrue(negStart.isSuccess)
+        assertEquals(BigDecimal("50.00"), negStart.getOrNull())
+
+        // 50 × 2 + 100 × 500g = 100 + 50 = 150.00
+        val mixedChain = CalculatorEngine.evaluate("50 × 2 + 100 × 500g")
+        assertTrue(mixedChain.isSuccess)
+        assertEquals(BigDecimal("150.00"), mixedChain.getOrNull())
+
+        // 1000 ÷ 2 - 200 × 0.5 = 500 - 100 = 400.00
+        val divMulChain = CalculatorEngine.evaluate("1000 ÷ 2 - 200 × 0.5")
+        assertTrue(divMulChain.isSuccess)
+        assertEquals(BigDecimal("400.00"), divMulChain.getOrNull())
+    }
+
+    @Test
+    fun testInvalidCharacterAndSyntaxErrors() {
+        val invalidChar = CalculatorEngine.evaluate("200 & 4")
+        assertTrue(invalidChar.isFailure)
+
+        val doubleOp = CalculatorEngine.evaluate("200 ++ 50")
+        assertTrue(doubleOp.isFailure)
+
+        val trailingOp = CalculatorEngine.evaluate("100 +")
+        assertTrue(trailingOp.isFailure)
+    }
 }
