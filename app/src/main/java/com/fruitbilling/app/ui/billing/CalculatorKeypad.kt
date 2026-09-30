@@ -56,9 +56,9 @@ fun CalculatorKeypad(
     onDecimalClicked: () -> Unit,
     onEqualsClicked: () -> Unit,
     onBackspace: () -> Unit,
+    modifier: Modifier = Modifier,
     onClearAll: (() -> Unit)? = null,
-    keyHeight: androidx.compose.ui.unit.Dp = 50.dp,
-    modifier: Modifier = Modifier
+    keyHeight: androidx.compose.ui.unit.Dp = 50.dp
 ) {
     val view = LocalView.current
     fun haptic() = view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -192,19 +192,19 @@ private fun KeypadRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        KeypadButton(item = col1, height = height, onHaptic = onHaptic, modifier = Modifier.weight(1f))
-        KeypadButton(item = col2, height = height, onHaptic = onHaptic, modifier = Modifier.weight(1f))
-        KeypadButton(item = col3, height = height, onHaptic = onHaptic, modifier = Modifier.weight(1f))
-        KeypadButton(item = col4, height = height, onHaptic = onHaptic, modifier = Modifier.weight(1f))
+        KeypadButton(item = col1, onHaptic = onHaptic, modifier = Modifier.weight(1f), height = height)
+        KeypadButton(item = col2, onHaptic = onHaptic, modifier = Modifier.weight(1f), height = height)
+        KeypadButton(item = col3, onHaptic = onHaptic, modifier = Modifier.weight(1f), height = height)
+        KeypadButton(item = col4, onHaptic = onHaptic, modifier = Modifier.weight(1f), height = height)
     }
 }
 
 @Composable
 private fun KeypadButton(
     item: KeyItem,
-    height: androidx.compose.ui.unit.Dp = 50.dp,
     onHaptic: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp = 50.dp
 ) {
     val containerColor = when (item.type) {
         KeyType.DIGIT    -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
@@ -220,12 +220,12 @@ private fun KeypadButton(
     Box(
         modifier = modifier
             .height(height)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(containerColor)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { onHaptic(); item.action() },
+            .clickable {
+                onHaptic()
+                item.action()
+            },
         contentAlignment = Alignment.Center
     ) {
         val fontSize = when {
@@ -247,18 +247,16 @@ private fun KeypadButton(
 @Composable
 private fun BackspaceKey(
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
-    height: androidx.compose.ui.unit.Dp = 50.dp,
-    modifier: Modifier = Modifier
+    height: androidx.compose.ui.unit.Dp = 50.dp
 ) {
     Box(
         modifier = modifier
             .height(height)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f))
             .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
@@ -281,13 +279,10 @@ private fun QuickShortcutButton(
 ) {
     Box(
         modifier = modifier
-            .height(32.dp)
-            .clip(RoundedCornerShape(6.dp))
+            .height(34.dp)
+            .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { onClick() },
+            .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Text(

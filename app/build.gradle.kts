@@ -12,8 +12,8 @@ android {
         applicationId = "com.fruitbilling.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.0.1"
+        versionCode = 12
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -60,6 +60,12 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
 }
 
 dependencies {
@@ -92,6 +98,7 @@ dependencies {
 
     // Core
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     // Google Sign-In / Auth
     implementation("com.google.android.gms:play-services-auth:21.2.0")

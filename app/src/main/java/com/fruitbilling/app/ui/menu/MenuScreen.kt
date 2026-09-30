@@ -79,8 +79,8 @@ import com.fruitbilling.app.util.MoneyUtils
 @Composable
 fun MenuScreen(
     viewModel: MenuViewModel,
-    onLanguageChanged: ((String) -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onLanguageChanged: ((String) -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }

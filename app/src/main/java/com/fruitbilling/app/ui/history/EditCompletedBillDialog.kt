@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,7 +78,7 @@ fun EditCompletedBillDialog(
     var selectedPayment by remember { mutableStateOf(bill.paymentMethod) }
     var customerNameInput by remember { mutableStateOf(bill.customerName ?: "") }
     var showAddItemDialog by remember { mutableStateOf(false) }
-    var editingItemIndex by remember { mutableStateOf(-1) }
+    var editingItemIndex by remember { mutableIntStateOf(-1) }
     var editingItemQtyText by remember { mutableStateOf("") }
 
     // Compute running total from editable items
@@ -270,7 +271,7 @@ fun EditCompletedBillDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
-                    prefix = { Text("₹ ") }
+                    prefix = { Text("${MoneyUtils.currencySymbol} ") }
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -361,7 +362,7 @@ fun EditCompletedBillDialog(
                 val itemName = name.trim().ifEmpty { "Custom Item" }
                 val newItem = BillItem(
                     billId = bill.id,
-                    expression = "$itemName: ₹${amount.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()}",
+                    expression = "$itemName: ${MoneyUtils.currencySymbol}${amount.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()}",
                     calculatedAmount = amount.setScale(2, RoundingMode.HALF_UP),
                     productNameSnapshot = itemName,
                     createdAt = System.currentTimeMillis()
@@ -464,12 +465,12 @@ private fun AddFreeformItemDialog(
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = { Text("Amount (₹)") },
+                    label = { Text("Amount (${MoneyUtils.currencySymbol})") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
-                    prefix = { Text("₹ ") }
+                    prefix = { Text("${MoneyUtils.currencySymbol} ") }
                 )
             }
         },

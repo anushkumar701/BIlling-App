@@ -1,6 +1,7 @@
 package com.fruitbilling.app.ui.menu
 
 import android.net.Uri
+import com.fruitbilling.app.util.MoneyUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -117,9 +118,9 @@ fun AddEditProductDialog(
                         errorText = null
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Price (₹)") },
+                    label = { Text("Price (${MoneyUtils.currencySymbol})") },
                     placeholder = { Text("e.g. 70") },
-                    prefix = { Text("₹", fontWeight = FontWeight.Bold) },
+                    prefix = { Text(MoneyUtils.currencySymbol, fontWeight = FontWeight.Bold) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )

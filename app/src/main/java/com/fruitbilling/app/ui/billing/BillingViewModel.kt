@@ -297,7 +297,7 @@ class BillingViewModel(
                 quantityOrWeight = quantityOrWeight,
                 normalizedWeight = if (product.unit == ProductUnit.KG) quantityOrWeight else null
             )
-            _snackbarMessages.emit("Added ${product.name} (₹$amount)")
+            _snackbarMessages.emit("Added ${product.name} (${MoneyUtils.currencySymbol}$amount)")
         }
     }
 
@@ -314,11 +314,11 @@ class BillingViewModel(
         viewModelScope.launch {
             billRepository.addCalculation(
                 billId = currentBill.bill.id,
-                expression = "$itemName: ₹$expression",
+                expression = "$itemName: ${MoneyUtils.currencySymbol}$expression",
                 amount = amount.setScale(2, RoundingMode.HALF_UP),
                 product = null
             )
-            _snackbarMessages.emit("Added $itemName (₹$amount)")
+            _snackbarMessages.emit("Added $itemName (${MoneyUtils.currencySymbol}$amount)")
         }
     }
 

@@ -87,10 +87,15 @@ fun AppNavigation(
     val darkTheme = isSystemInDarkTheme()
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
-            val insetsController = WindowCompat.getInsetsController(window, view)
-            val isDarkTopBar = currentRoute == Screen.History.route || currentRoute == Screen.Menu.route
-            insetsController.isAppearanceLightStatusBars = if (isDarkTopBar) false else !darkTheme
+            val window = (view.context as? Activity)?.window
+                ?: (generateSequence(view.context) { (it as? android.content.ContextWrapper)?.baseContext }
+                    .filterIsInstance<Activity>()
+                    .firstOrNull())?.window
+            if (window != null) {
+                val insetsController = WindowCompat.getInsetsController(window, view)
+                val isDarkTopBar = currentRoute == Screen.History.route || currentRoute == Screen.Menu.route
+                insetsController.isAppearanceLightStatusBars = if (isDarkTopBar) false else !darkTheme
+            }
         }
     }
 

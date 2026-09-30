@@ -76,7 +76,7 @@ object CsvExportManager {
                     val itemsSummary = item.items.joinToString("; ") { bi ->
                         val prettyExpr = CalculatorEngine.prettyExpression(bi.expression)
                         val name = bi.productNameSnapshot ?: ""
-                        if (name.isNotBlank()) "$name ($prettyExpr = ₹${bi.calculatedAmount})" else "$prettyExpr = ₹${bi.calculatedAmount}"
+                        if (name.isNotBlank()) "$name ($prettyExpr = ${MoneyUtils.currencySymbol}${bi.calculatedAmount})" else "$prettyExpr = ${MoneyUtils.currencySymbol}${bi.calculatedAmount}"
                     }.replace("\"", "\"\"")
 
                     val payLabel = when (bill.paymentMethod) {

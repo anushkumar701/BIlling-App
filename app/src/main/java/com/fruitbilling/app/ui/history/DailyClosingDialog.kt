@@ -181,6 +181,14 @@ fun DailyClosingDialog(
                             isBold = true,
                             valueColor = MaterialTheme.colorScheme.onSurface
                         )
+                        if (todayPending > BigDecimal.ZERO) {
+                            ClosingRow(
+                                label = "Total Gross Sales (with Pending):",
+                                value = MoneyUtils.formatPrice(totalRevenue),
+                                isBold = true,
+                                valueColor = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         ClosingRow(
                             label = "Total Bills Closed:",
                             value = "${todayBills.size} bills",
@@ -201,7 +209,7 @@ fun DailyClosingDialog(
                 OutlinedTextField(
                     value = countedCashText,
                     onValueChange = { countedCashText = it },
-                    label = { Text("Actual Cash Counted in Drawer (₹)") },
+                    label = { Text("Actual Cash Counted in Drawer (${MoneyUtils.currencySymbol})") },
                     placeholder = { Text("e.g. ${todayCash.toInt()}") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -214,7 +222,6 @@ fun DailyClosingDialog(
                     Spacer(modifier = Modifier.height(10.dp))
                     val isBalanced = cashDifference.compareTo(BigDecimal.ZERO) == 0
                     val isShortage = cashDifference < BigDecimal.ZERO
-                    val isExcess = cashDifference > BigDecimal.ZERO
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -246,7 +253,7 @@ fun DailyClosingDialog(
                             Column {
                                 Text(
                                     text = when {
-                                        isBalanced -> "✅ Perfectly Balanced (₹0.00)"
+                                        isBalanced -> "✅ Perfectly Balanced (${MoneyUtils.currencySymbol}0.00)"
                                         isShortage -> "⚠️ Cash Shortage: ${MoneyUtils.formatPrice(cashDifference.abs())}"
                                         else -> "ℹ️ Cash Surplus: +${MoneyUtils.formatPrice(cashDifference)}"
                                     },
@@ -281,7 +288,7 @@ fun DailyClosingDialog(
                     value = notesText,
                     onValueChange = { notesText = it },
                     label = { Text("Closing Notes (Optional)") },
-                    placeholder = { Text("e.g. Paid ₹200 for tea/supplies from drawer...") },
+                    placeholder = { Text("e.g. Paid ${MoneyUtils.currencySymbol}200 for tea/supplies from drawer...") },
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3,
                     shape = RoundedCornerShape(12.dp)
@@ -393,7 +400,7 @@ private fun shareClosingReport(
             appendLine("• Counted Cash:  ${MoneyUtils.formatPrice(countedCash)}")
             if (difference != null) {
                 val diffStr = when {
-                    difference.compareTo(BigDecimal.ZERO) == 0 -> "✅ Balanced (₹0.00)"
+                    difference.compareTo(BigDecimal.ZERO) == 0 -> "✅ Balanced (${MoneyUtils.currencySymbol}0.00)"
                     difference < BigDecimal.ZERO -> "⚠️ Shortage: -${MoneyUtils.formatPrice(difference.abs())}"
                     else -> "ℹ️ Surplus: +${MoneyUtils.formatPrice(difference)}"
                 }

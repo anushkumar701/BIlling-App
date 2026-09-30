@@ -50,8 +50,13 @@ fun FruitBillingTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            val window = (view.context as? Activity)?.window
+                ?: (generateSequence(view.context) { (it as? android.content.ContextWrapper)?.baseContext }
+                    .filterIsInstance<Activity>()
+                    .firstOrNull())?.window
+            if (window != null) {
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            }
         }
     }
 

@@ -39,9 +39,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIncomingBackupIntent(intent: Intent?, app: FruitBillingApp) {
-        val uri: Uri = intent?.data
-            ?: intent?.getParcelableExtra(Intent.EXTRA_STREAM)
-            ?: return
+        val streamUri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            intent?.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent?.getParcelableExtra(Intent.EXTRA_STREAM)
+        }
+        val uri: Uri = intent?.data ?: streamUri ?: return
 
         lifecycleScope.launch(Dispatchers.IO) {
             val result = CloudBackupManager.restoreFromUri(this@MainActivity, uri, app.database)

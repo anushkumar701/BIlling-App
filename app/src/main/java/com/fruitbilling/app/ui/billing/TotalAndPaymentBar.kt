@@ -40,11 +40,11 @@ import java.math.BigDecimal
 @Composable
 fun TotalAndPaymentBar(
     calculatedTotal: BigDecimal,
-    finalPriceInput: String = "",
     selectedPaymentMethod: PaymentMethod?,
-    onFinalPriceChanged: (String) -> Unit = {},
     onPaymentMethodSelected: (PaymentMethod?) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    finalPriceInput: String = "",
+    onFinalPriceChanged: (String) -> Unit = {}
 ) {
     var showChangeDialog by remember { mutableStateOf(false) }
 
@@ -231,7 +231,7 @@ private fun CashChangeDialog(
                         }
                     },
                     placeholder = { Text("Enter Cash Given by Customer") },
-                    prefix = { Text("₹ ") },
+                    prefix = { Text("${MoneyUtils.currencySymbol} ") },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
                         imeAction = ImeAction.Done

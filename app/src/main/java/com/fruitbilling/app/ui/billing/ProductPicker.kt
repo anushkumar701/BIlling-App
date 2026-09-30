@@ -532,8 +532,8 @@ fun AddCustomItemDialog(
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = { Text("Price / Amount (₹)") },
-                    prefix = { Text("₹ ") },
+                    label = { Text("Price / Amount (${MoneyUtils.currencySymbol})") },
+                    prefix = { Text("${MoneyUtils.currencySymbol} ") },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal,
                         imeAction = ImeAction.Done

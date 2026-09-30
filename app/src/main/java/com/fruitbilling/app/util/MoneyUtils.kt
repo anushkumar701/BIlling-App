@@ -30,29 +30,47 @@ object MoneyUtils {
         currencyCode = code.trim().uppercase().ifBlank { "INR" }
     }
 
-    private val numberFormat = (NumberFormat.getNumberInstance(Locale.getDefault()) as DecimalFormat).apply {
-        minimumFractionDigits = 2
-        maximumFractionDigits = 2
+    @Volatile
+    private var cachedLocale: Locale? = null
+    @Volatile
+    private var cachedNumberFormat: DecimalFormat? = null
+    @Volatile
+    private var cachedWholeNumberFormat: DecimalFormat? = null
+
+    private fun getNumberFormat(): DecimalFormat {
+        val currentLocale = Locale.getDefault()
+        if (cachedLocale != currentLocale || cachedNumberFormat == null) {
+            cachedLocale = currentLocale
+            cachedNumberFormat = (NumberFormat.getNumberInstance(currentLocale) as DecimalFormat).apply {
+                minimumFractionDigits = 2
+                maximumFractionDigits = 2
+            }
+            cachedWholeNumberFormat = (NumberFormat.getNumberInstance(currentLocale) as DecimalFormat).apply {
+                minimumFractionDigits = 0
+                maximumFractionDigits = 0
+            }
+        }
+        return cachedNumberFormat!!
     }
 
-    private val wholeNumberFormat = (NumberFormat.getNumberInstance(Locale.getDefault()) as DecimalFormat).apply {
-        minimumFractionDigits = 0
-        maximumFractionDigits = 0
+    private fun getWholeNumberFormat(): DecimalFormat {
+        getNumberFormat() // ensures cache is up-to-date
+        return cachedWholeNumberFormat!!
     }
 
     fun formatPrice(amount: BigDecimal?): String {
         if (amount == null) return "${currencySymbol}0.00"
         val scaled = amount.setScale(2, RoundingMode.HALF_UP)
-        return "$currencySymbol${numberFormat.format(scaled)}"
+        return "$currencySymbol${getNumberFormat().format(scaled)}"
     }
 
     fun formatWholePrice(amount: BigDecimal?): String {
         if (amount == null) return "${currencySymbol}0"
         val scaled = amount.setScale(2, RoundingMode.HALF_UP)
         return if (scaled.remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) == 0) {
-            "$currencySymbol${wholeNumberFormat.format(scaled)}"
+            "$currencySymbol${getWholeNumberFormat().format(scaled)}"
         } else {
-            "$currencySymbol${numberFormat.format(scaled)}"
+            "$currencySymbol${getNumberFormat().format(scaled)}"
         }
     }
 

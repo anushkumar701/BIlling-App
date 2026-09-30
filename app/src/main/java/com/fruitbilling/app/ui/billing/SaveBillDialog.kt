@@ -557,7 +557,7 @@ fun SaveBillDialog(
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Cash Received (₹)") },
+                                label = { Text("Cash Received (${MoneyUtils.currencySymbol})") },
                                 placeholder = { Text("e.g. 500") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
