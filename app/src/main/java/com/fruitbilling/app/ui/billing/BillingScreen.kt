@@ -92,7 +92,7 @@ fun BillingScreen(
                 onHoldBill = viewModel::onHoldBillTapped,
                 onSwitchBill = viewModel::onSwitchBill,
                 onNewBill = viewModel::onNewBillTapped,
-                onToggleMode = viewModel::onToggleMode
+                onToggleMode = { viewModel.onToggleMode(context) }
             )
 
             // 2. Fruit Catalog with Search & Quick Fruit Chips
@@ -119,6 +119,7 @@ fun BillingScreen(
                     billWithItems = uiState.currentBill,
                     onEditItem = viewModel::onPromptEditItem,
                     onDeleteItem = viewModel::onPromptDeleteItem,
+                    billingMode = uiState.billingMode,
                     modifier = Modifier.fillMaxSize()
                 )
             }

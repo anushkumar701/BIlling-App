@@ -4,6 +4,12 @@ import android.app.Activity
 import android.view.WindowManager
 import java.math.BigDecimal
 import com.fruitbilling.app.util.MoneyUtils
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,8 +25,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
+import com.fruitbilling.app.data.model.BillingMode
+import com.fruitbilling.app.data.model.Product
+
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -89,6 +99,13 @@ fun CalcScreen(
     var keypadHeightDp by remember {
         mutableFloatStateOf(com.fruitbilling.app.data.preferences.CalcPreferences.getKeypadHeightDp(context))
     }
+    var selectedProductForAdd by remember { mutableStateOf<Product?>(null) }
+    var showCustomItemDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.initBillingMode(context)
+    }
+
     DisposableEffect(Unit) {
         val window = (context as? Activity)?.window
         window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -130,8 +147,34 @@ fun CalcScreen(
                 onHoldBill = viewModel::onHoldBillTapped,
                 onSwitchBill = viewModel::onSwitchBill,
                 onNewBill = viewModel::onNewBillTapped,
-                onToggleMode = viewModel::onToggleMode
+                onToggleMode = { viewModel.onToggleMode(context) }
             )
+
+            // ── 1.5. Fruit Catalog & Real-Time Search in Search Mode ─────────
+            AnimatedVisibility(
+                visible = uiState.billingMode == BillingMode.BEGINNER,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column {
+                    ProductCatalogSection(
+                        products = uiState.matchingProducts,
+                        searchQuery = uiState.searchQuery,
+                        onSearchQueryChanged = viewModel::onSearchQueryChanged,
+                        onProductClicked = { product ->
+                            viewModel.onProductSelected(product)
+                        },
+                        onProductLongClicked = { product ->
+                            selectedProductForAdd = product
+                        },
+                        onCustomItemClicked = { showCustomItemDialog = true }
+                    )
+                    HorizontalDivider(
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                    )
+                }
+            }
 
             // ── 2. Bill item list (fills remaining space) ────────────────────
             Box(
@@ -143,6 +186,7 @@ fun CalcScreen(
                     billWithItems = uiState.currentBill,
                     onEditItem = viewModel::onPromptEditItem,
                     onDeleteItem = viewModel::onPromptDeleteItem,
+                    billingMode = uiState.billingMode,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -174,6 +218,7 @@ fun CalcScreen(
                 livePreview = uiState.livePreview,
                 hasBillItems = uiState.currentBill?.items?.isNotEmpty() == true,
                 taggedProductName = uiState.taggedProduct?.name,
+                onUntagProduct = viewModel::onUntagProduct,
                 onClearAll = viewModel::onClearExpression,
                 onClearBill = viewModel::onClearBill
             )
@@ -235,6 +280,29 @@ fun CalcScreen(
                 )
             }
         }
+
+        // Dialog: Add Fruit to Bill (with quick presets & custom weight)
+        selectedProductForAdd?.let { product ->
+            AddProductDialog(
+                product = product,
+                onConfirm = { quantity ->
+                    viewModel.addProductToBill(product, quantity)
+                    selectedProductForAdd = null
+                },
+                onDismiss = { selectedProductForAdd = null }
+            )
+        }
+
+        // Dialog: Add Custom / Non-catalog Item
+        if (showCustomItemDialog) {
+            AddCustomItemDialog(
+                onConfirm = { name, amount ->
+                    viewModel.addCustomItemToBill(name, amount)
+                    showCustomItemDialog = false
+                },
+                onDismiss = { showCustomItemDialog = false }
+            )
+        }
     }
 }
 
@@ -252,6 +320,7 @@ private fun CalcExpressionBar(
     livePreview: String,
     hasBillItems: Boolean,
     taggedProductName: String?,
+    onUntagProduct: () -> Unit,
     onClearAll: () -> Unit,
     onClearBill: () -> Unit,
     modifier: Modifier = Modifier
@@ -272,15 +341,41 @@ private fun CalcExpressionBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                // Product badge row
+                // Product badge row with 1-tap remove
                 if (!taggedProductName.isNullOrBlank()) {
-                    Text(
-                        text = "▸ $taggedProductName",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "🏷️ $taggedProductName",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remove tag",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .clickable { onUntagProduct() }
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // Main expression — large, full-width, easy to read while talking

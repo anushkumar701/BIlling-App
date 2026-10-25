@@ -242,15 +242,32 @@ class BillingViewModel(
         }
     }
 
-    // --- Beginner Mode Search & Tagging (§2 & §7) ---
+    // --- Beginner / Search Mode & Tagging (§2 & §7) ---
 
-    fun onToggleMode() {
+    fun initBillingMode(context: android.content.Context) {
+        val saved = com.fruitbilling.app.data.preferences.CalcPreferences.getSavedBillingMode(context)
+        if (_uiState.value.billingMode != saved) {
+            _uiState.value = _uiState.value.copy(billingMode = saved)
+        }
+    }
+
+    fun onToggleMode(context: android.content.Context? = null) {
         val nextMode = if (_uiState.value.billingMode == BillingMode.EXPERIENCED) {
             BillingMode.BEGINNER
         } else {
             BillingMode.EXPERIENCED
         }
         _uiState.value = _uiState.value.copy(billingMode = nextMode)
+        if (context != null) {
+            com.fruitbilling.app.data.preferences.CalcPreferences.setSavedBillingMode(context, nextMode)
+        }
+    }
+
+    fun onUntagProduct() {
+        _uiState.value = _uiState.value.copy(
+            taggedProduct = null,
+            quickShortcuts = DEFAULT_WEIGHT_SHORTCUTS
+        )
     }
 
     fun onSearchQueryChanged(query: String) {

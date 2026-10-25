@@ -44,7 +44,8 @@ fun CurrentBillSection(
     billWithItems: BillWithItems?,
     onEditItem: (BillItem) -> Unit,
     onDeleteItem: (BillItem) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    billingMode: com.fruitbilling.app.data.model.BillingMode = com.fruitbilling.app.data.model.BillingMode.EXPERIENCED
 ) {
     val items = billWithItems?.items ?: emptyList()
     val listState = rememberLazyListState()
@@ -75,17 +76,23 @@ fun CurrentBillSection(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(16.dp)
+                ) {
                     Text(
-                        text = "🧮",
+                        text = if (billingMode == com.fruitbilling.app.data.model.BillingMode.BEGINNER) "🍎" else "🧮",
                         fontSize = 32.sp
                     )
                     Text(
-                        text = "Type on keypad · press =",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = if (billingMode == com.fruitbilling.app.data.model.BillingMode.BEGINNER)
+                            "Tap any fruit above or type price × weight"
+                        else
+                            "Type price × weight on keypad · press =",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                         color = MaterialTheme.colorScheme.outline,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier.padding(top = 6.dp)
                     )
                 }
             }

@@ -174,20 +174,69 @@ fun BillingHeader(
                         )
                     }
 
-                    // Mode switch toggle
-                    Surface(
-                        color = if (billingMode == BillingMode.EXPERIENCED)
-                            MaterialTheme.colorScheme.secondaryContainer
-                        else
-                            MaterialTheme.colorScheme.tertiaryContainer,
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.clickable { onToggleMode() }
+                    // Mode switch segmented toggle (Fast vs Search)
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                            .padding(2.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = if (billingMode == BillingMode.EXPERIENCED) "⚡ Fast" else "🔍 Search",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                        // Fast mode button
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(
+                                    if (billingMode == BillingMode.EXPERIENCED)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        androidx.compose.ui.graphics.Color.Transparent
+                                )
+                                .clickable {
+                                    if (billingMode != BillingMode.EXPERIENCED) onToggleMode()
+                                }
+                                .padding(horizontal = 7.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "⚡ Fast",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (billingMode == BillingMode.EXPERIENCED)
+                                        MaterialTheme.colorScheme.onPrimary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
+
+                        // Search mode button
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(
+                                    if (billingMode == BillingMode.BEGINNER)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        androidx.compose.ui.graphics.Color.Transparent
+                                )
+                                .clickable {
+                                    if (billingMode != BillingMode.BEGINNER) onToggleMode()
+                                }
+                                .padding(horizontal = 7.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "🔍 Search",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (billingMode == BillingMode.BEGINNER)
+                                        MaterialTheme.colorScheme.onPrimary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
                     }
                 }
 

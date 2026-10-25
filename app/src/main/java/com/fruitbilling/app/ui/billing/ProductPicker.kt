@@ -2,6 +2,7 @@ package com.fruitbilling.app.ui.billing
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -76,7 +77,8 @@ fun ProductCatalogSection(
     onSearchQueryChanged: (String) -> Unit,
     onProductClicked: (Product) -> Unit,
     onCustomItemClicked: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onProductLongClicked: ((Product) -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -183,7 +185,10 @@ fun ProductCatalogSection(
                 items(products, key = { it.id }) { product ->
                     FruitChip(
                         product = product,
-                        onClick = { onProductClicked(product) }
+                        onClick = { onProductClicked(product) },
+                        onLongClick = if (onProductLongClicked != null) {
+                            { onProductLongClicked(product) }
+                        } else null
                     )
                 }
 
@@ -226,20 +231,21 @@ fun ProductCatalogSection(
 private fun FruitChip(
     product: Product,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null
 ) {
     val imageBitmap = rememberProductImage(product.iconRef)
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         modifier = modifier.height(38.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             if (imageBitmap != null) {
                 Image(
@@ -266,6 +272,23 @@ private fun FruitChip(
                     fontSize = 12.sp
                 )
             )
+            if (onLongClick != null) {
+                Box(
+                    modifier = Modifier
+                        .size(19.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f))
+                        .clickable { onLongClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
     }
 }
