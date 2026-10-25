@@ -18,6 +18,9 @@ import com.fruitbilling.app.data.model.Product
 import com.fruitbilling.app.data.model.ProductUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -75,28 +78,36 @@ object CloudBackupManager {
         }
     }
 
-    @Volatile
-    private var lastSyncAttemptTime = 0L
+    private val syncScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var pendingSyncJob: Job? = null
+    private val syncLock = Any()
 
     /**
      * Triggers a lightweight, non-blocking asynchronous cloud sync in the background.
-     * Throttled to avoid unnecessary network flooding when making rapid edits.
+     * Uses a 2-second debounce window so consecutive edits settle before syncing.
+     * Always writes to the local sandbox cache so local restore stays fresh even offline.
      */
     fun triggerAsyncCloudSync(context: Context, database: AppDatabase) {
-        val now = System.currentTimeMillis()
-        if (now - lastSyncAttemptTime < 15_000) {
-            return
-        }
-        lastSyncAttemptTime = now
-
         val appContext = context.applicationContext
-        val account = GoogleAuthManager.getLastSignedInAccount(appContext) ?: return
-        val email = account.email ?: return
+        synchronized(syncLock) {
+            pendingSyncJob?.cancel()
+            pendingSyncJob = syncScope.launch {
+                delay(2000)
+                try {
+                    // Update internal sandbox backup cache
+                    val jsonString = generateBackupJson(database)
+                    val privateDir = File(appContext.filesDir, "cloud_backups")
+                    if (!privateDir.exists()) privateDir.mkdirs()
+                    File(privateDir, "cloud_backup.json").writeText(jsonString)
 
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                backupToCloud(appContext, database, email)
-            } catch (_: Exception) {}
+                    // If signed in, sync to cloud
+                    val account = GoogleAuthManager.getLastSignedInAccount(appContext)
+                    val email = account?.email
+                    if (!email.isNullOrBlank()) {
+                        backupToCloud(appContext, database, email)
+                    }
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -104,6 +115,7 @@ object CloudBackupManager {
      * Cleans up any legacy public folders created in earlier versions so the user's
      * local file system remains 100% clean and free of database files.
      */
+    @Suppress("UNUSED_PARAMETER")
     fun cleanUpLegacyLocalFiles(context: Context) {
         try {
             val docs = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "FruitBilling")
@@ -163,7 +175,10 @@ object CloudBackupManager {
                         put("price", p.price.toPlainString())
                         put("unit", p.unit.name)
                         put("active", p.active)
+                        p.iconRef?.let { put("iconRef", it) }
+                        p.buyingCost?.let { put("buyingCost", it.toPlainString()) }
                         put("createdAt", p.createdAt)
+                        put("updatedAt", p.updatedAt)
                     })
                 }
                 put("products", productsArray)
@@ -193,6 +208,8 @@ object CloudBackupManager {
                                 it.unitPriceSnapshot?.let { ups -> put("unitPriceSnapshot", ups.toPlainString()) }
                                 it.unit?.let { u -> put("unit", u.name) }
                                 it.quantityOrWeight?.let { qw -> put("quantityOrWeight", qw.toPlainString()) }
+                                it.normalizedWeight?.let { nw -> put("normalizedWeight", nw.toPlainString()) }
+                                it.buyingCostSnapshot?.let { bcs -> put("buyingCostSnapshot", bcs.toPlainString()) }
                             })
                         }
                         put("items", itemsArray)
@@ -475,7 +492,11 @@ object CloudBackupManager {
         context.startActivity(chooser)
     }
 
-    suspend fun restoreFromJson(jsonString: String, database: AppDatabase): Result<RestoreResult> =
+    suspend fun restoreFromJson(
+        jsonString: String,
+        database: AppDatabase,
+        replaceCatalog: Boolean = true
+    ): Result<RestoreResult> =
         withContext(Dispatchers.IO) {
             try {
                 val root = JSONObject(jsonString)
@@ -484,24 +505,72 @@ object CloudBackupManager {
                 var restoredProducts = 0
                 var restoredBills = 0
 
+                val backupProductNames = mutableSetOf<String>()
+
                 // 1. Restore products
                 for (i in 0 until productsArray.length()) {
                     val pObj = productsArray.getJSONObject(i)
-                    val name = pObj.getString("name")
+                    val name = pObj.getString("name").trim()
+                    backupProductNames.add(name.lowercase())
                     val price = BigDecimal(pObj.getString("price"))
                     val unit = try {
                         ProductUnit.valueOf(pObj.optString("unit", "KG"))
                     } catch (_: Exception) { ProductUnit.KG }
                     val active = pObj.optBoolean("active", true)
+                    val iconRef = if (pObj.has("iconRef") && !pObj.isNull("iconRef")) pObj.getString("iconRef") else null
+                    val buyingCost = if (pObj.has("buyingCost") && !pObj.isNull("buyingCost")) {
+                        BigDecimal(pObj.getString("buyingCost"))
+                    } else null
+                    val createdAt = pObj.optLong("createdAt", System.currentTimeMillis())
+                    val updatedAt = pObj.optLong("updatedAt", System.currentTimeMillis())
 
                     val existing = database.productDao().getProductByName(name)
                     if (existing == null) {
                         database.productDao().insertProduct(
-                            Product(name = name, price = price, unit = unit, active = active)
+                            Product(
+                                name = name,
+                                price = price,
+                                unit = unit,
+                                iconRef = iconRef,
+                                buyingCost = buyingCost,
+                                createdAt = createdAt,
+                                updatedAt = updatedAt,
+                                active = active
+                            )
+                        )
+                        restoredProducts++
+                    } else {
+                        // Update existing item so user's backed-up price, unit, active state, buyingCost, iconRef are restored!
+                        database.productDao().updateProduct(
+                            existing.copy(
+                                price = price,
+                                unit = unit,
+                                iconRef = iconRef ?: existing.iconRef,
+                                buyingCost = buyingCost,
+                                updatedAt = updatedAt,
+                                active = active
+                            )
                         )
                         restoredProducts++
                     }
                 }
+
+                // If replacing catalog and backup contained products, prune local items that were removed before backup
+                if (replaceCatalog && productsArray.length() > 0) {
+                    val currentLocalProducts = database.productDao().getAllProductsSync()
+                    for (lp in currentLocalProducts) {
+                        if (!backupProductNames.contains(lp.name.trim().lowercase())) {
+                            database.productDao().deleteProduct(lp)
+                        }
+                    }
+                }
+
+                // Mark catalog initialized so cold app restart won't re-inject defaults
+                try {
+                    val catalogPrefs = com.fruitbilling.app.FruitBillingApp.instance
+                        .getSharedPreferences("catalog_prefs", Context.MODE_PRIVATE)
+                    catalogPrefs.edit().putBoolean("has_initialized_catalog_v103", true).apply()
+                } catch (_: Exception) {}
 
                 // 2. Restore completed bills and items
                 for (i in 0 until billsArray.length()) {
@@ -573,6 +642,12 @@ object CloudBackupManager {
                             val quantityOrWeight = if (itObj.has("quantityOrWeight") && !itObj.isNull("quantityOrWeight")) {
                                 BigDecimal(itObj.getString("quantityOrWeight"))
                             } else null
+                            val normalizedWeight = if (itObj.has("normalizedWeight") && !itObj.isNull("normalizedWeight")) {
+                                BigDecimal(itObj.getString("normalizedWeight"))
+                            } else null
+                            val buyingCostSnapshot = if (itObj.has("buyingCostSnapshot") && !itObj.isNull("buyingCostSnapshot")) {
+                                BigDecimal(itObj.getString("buyingCostSnapshot"))
+                            } else null
 
                             itemsToInsert.add(
                                 BillItem(
@@ -584,6 +659,8 @@ object CloudBackupManager {
                                     unitPriceSnapshot = unitPriceSnapshot,
                                     unit = unit,
                                     quantityOrWeight = quantityOrWeight,
+                                    normalizedWeight = normalizedWeight,
+                                    buyingCostSnapshot = buyingCostSnapshot,
                                     createdAt = createdAt
                                 )
                             )

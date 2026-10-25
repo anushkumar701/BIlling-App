@@ -109,6 +109,14 @@ fun MenuScreen(
         }
     }
 
+    val restoreFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.onRestoreFromUri(context, uri)
+        }
+    }
+
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -355,7 +363,7 @@ fun MenuScreen(
                             }
                         }
 
-                        // Export / Share Backup and Cloud Restore Action
+                        // Export / Share Backup, Restore File, and Cloud Restore Action
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -366,26 +374,37 @@ fun MenuScreen(
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("📧 Share File", fontSize = 12.sp)
+                                Text("📤 Share File", fontSize = 12.sp)
                             }
 
                             OutlinedButton(
                                 onClick = {
-                                    viewModel.onPromptRestoreFromCloud()
+                                    restoreFileLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
                                 },
                                 enabled = !uiState.isRestoring,
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                if (uiState.isRestoring) {
-                                    androidx.compose.material3.CircularProgressIndicator(
-                                        modifier = Modifier.size(14.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                }
-                                Text("🔄 Restore Cloud", fontSize = 12.sp)
+                                Text("📁 Restore File", fontSize = 12.sp)
                             }
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.onPromptRestoreFromCloud()
+                            },
+                            enabled = !uiState.isRestoring,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            if (uiState.isRestoring) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                            }
+                            Text("🔄 Restore Cloud Backup", fontSize = 13.sp)
                         }
                     }
                 }

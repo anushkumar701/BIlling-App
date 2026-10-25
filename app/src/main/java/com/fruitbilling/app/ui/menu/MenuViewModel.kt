@@ -183,14 +183,17 @@ class MenuViewModel(
 
     fun onBackupToDrive(context: Context) {
         val email = _uiState.value.googleUser?.email ?: GoogleAuthManager.getLastSignedInAccount(context)?.email
-        if (email.isNullOrBlank()) {
-            viewModelScope.launch {
-                _snackbarMessages.emit("Please sign in with Google to backup to cloud.")
-            }
-            return
-        }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isBackingUp = true)
+            // Always create/update local backup file first so data is saved locally even offline
+            CloudBackupManager.createBackupJson(context, database)
+
+            if (email.isNullOrBlank()) {
+                _uiState.value = _uiState.value.copy(isBackingUp = false)
+                _snackbarMessages.emit("✅ Local backup saved! Sign in with Google to enable automatic cloud sync.")
+                return@launch
+            }
+
             val result = CloudBackupManager.backupToCloud(context, database, email)
             _uiState.value = _uiState.value.copy(isBackingUp = false)
             result.onSuccess {

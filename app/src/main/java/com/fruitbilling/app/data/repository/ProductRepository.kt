@@ -161,27 +161,14 @@ class ProductRepository(private val productDao: ProductDao) {
     }
 
     suspend fun ensureDefaultProducts() = withContext(Dispatchers.IO) {
-        val existing = productDao.getAllProductsSync()
-        // If legacy informal products exist (e.g. Small apple, Pacha palam), upgrade to professional items
-        val hasLegacyInformal = existing.any { 
-            it.name.contains("Small apple", ignoreCase = true) || 
-            it.name.contains("Pacha palam", ignoreCase = true) ||
-            it.name.contains("Manja", ignoreCase = true) ||
-            it.name.contains("Sevvazai", ignoreCase = true)
-        }
-
-        if (hasLegacyInformal) {
-            productDao.deleteAllProducts()
-            productDao.insertAll(PROFESSIONAL_DEFAULT_PRODUCTS)
-            triggerCloudSync()
-        } else if (existing.isEmpty()) {
-            val prefs = com.fruitbilling.app.FruitBillingApp.instance.getSharedPreferences("catalog_prefs", android.content.Context.MODE_PRIVATE)
-            val alreadyInitialized = prefs.getBoolean("has_initialized_catalog_v103", false)
-            if (!alreadyInitialized) {
-                prefs.edit().putBoolean("has_initialized_catalog_v103", true).apply()
+        val prefs = com.fruitbilling.app.FruitBillingApp.instance.getSharedPreferences("catalog_prefs", android.content.Context.MODE_PRIVATE)
+        val alreadyInitialized = prefs.getBoolean("has_initialized_catalog_v103", false)
+        if (!alreadyInitialized) {
+            val existing = productDao.getAllProductsSync()
+            if (existing.isEmpty()) {
                 productDao.insertAll(PROFESSIONAL_DEFAULT_PRODUCTS)
-                triggerCloudSync()
             }
+            prefs.edit().putBoolean("has_initialized_catalog_v103", true).apply()
         }
     }
 }
